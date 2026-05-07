@@ -10,6 +10,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.z2six.sketchbook.Sketchbook;
+import net.z2six.sketchbook.book.BookEntitySketch;
 import net.z2six.sketchbook.book.BookSketchTarget;
 import net.z2six.sketchbook.book.PageSketch;
 import net.z2six.sketchbook.book.SketchColorMask;
@@ -19,20 +20,29 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.UUID;
 
-public record BookSketchSyncPayload(BookSketchTarget target, int pageIndex, Optional<UUID> sketchId, Optional<PageSketch> sketch, Optional<SketchSourceImage> sourceImage, int colorMask) implements CustomPacketPayload {
+public record BookSketchSyncPayload(BookSketchTarget target, int pageIndex, Optional<UUID> sketchId, Optional<PageSketch> sketch, Optional<SketchSourceImage> sourceImage, int colorMask, Optional<BookEntitySketch> entitySketch) implements CustomPacketPayload {
     private static final Codec<BookSketchSyncPayload> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         BookSketchTarget.CODEC.fieldOf("target").forGetter(BookSketchSyncPayload::target),
         Codec.intRange(0, 99).fieldOf("page_index").forGetter(BookSketchSyncPayload::pageIndex),
         UUIDUtil.STRING_CODEC.optionalFieldOf("sketch_id").forGetter(BookSketchSyncPayload::sketchId),
         PageSketch.NETWORK_CODEC.optionalFieldOf("sketch").forGetter(BookSketchSyncPayload::sketch),
         SketchSourceImage.CODEC.optionalFieldOf("source").forGetter(BookSketchSyncPayload::sourceImage),
-        SketchColorMask.CODEC.optionalFieldOf("color_mask", SketchColorMask.NONE).forGetter(BookSketchSyncPayload::colorMask)
+        SketchColorMask.CODEC.optionalFieldOf("color_mask", SketchColorMask.NONE).forGetter(BookSketchSyncPayload::colorMask),
+        BookEntitySketch.CODEC.optionalFieldOf("entity_sketch").forGetter(BookSketchSyncPayload::entitySketch)
     ).apply(instance, BookSketchSyncPayload::new));
     public static final Type<BookSketchSyncPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Sketchbook.MODID, "book_sketch_sync"));
     public static final StreamCodec<RegistryFriendlyByteBuf, BookSketchSyncPayload> STREAM_CODEC = ByteBufCodecs.fromCodecWithRegistries(CODEC);
 
     public static BookSketchSyncPayload remove(BookSketchTarget target, int pageIndex) {
-        return new BookSketchSyncPayload(target, pageIndex, Optional.empty(), Optional.empty(), Optional.empty(), SketchColorMask.NONE);
+        return new BookSketchSyncPayload(target, pageIndex, Optional.empty(), Optional.empty(), Optional.empty(), SketchColorMask.NONE, Optional.empty());
+    }
+
+    public static BookSketchSyncPayload image(BookSketchTarget target, int pageIndex, UUID sketchId, PageSketch sketch, Optional<SketchSourceImage> sourceImage, int colorMask) {
+        return new BookSketchSyncPayload(target, pageIndex, Optional.of(sketchId), Optional.of(sketch), sourceImage, colorMask, Optional.empty());
+    }
+
+    public static BookSketchSyncPayload entity(BookSketchTarget target, int pageIndex, BookEntitySketch entitySketch) {
+        return new BookSketchSyncPayload(target, pageIndex, Optional.empty(), Optional.empty(), Optional.empty(), SketchColorMask.NONE, Optional.of(entitySketch));
     }
 
     @Override

@@ -1,0 +1,18 @@
+﻿{
+    "display":  {
+                    "icon":  {
+                                 "id":  "minecraft:writable_book"
+                             },
+                    "title":  "Sketchbook",
+                    "description":  "Record detailed studies of creatures",
+                    "background":  "minecraft:textures/block/bookshelf.png",
+                    "frame":  "task",
+                    "show_toast":  true,
+                    "announce_to_chat":  false
+                },
+    "criteria":  {
+                     "studied":  {
+                                     "trigger":  "minecraft:impossible"
+                                 }
+                 }
+}

@@ -1,0 +1,512 @@
+﻿{
+    "parent":  "sketchbook:study_detail/root",
+    "display":  {
+                    "icon":  {
+                                 "id":  "minecraft:nether_star"
+                             },
+                    "title":  "Grand Bestiary",
+                    "description":  "Study every creature in great detail",
+                    "frame":  "challenge",
+                    "show_toast":  true,
+                    "announce_to_chat":  true
+                },
+    "criteria":  {
+                     "allay":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "armadillo":  {
+                                       "trigger":  "minecraft:impossible"
+                                   },
+                     "axolotl":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "bat":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "bee":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "blaze":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "bogged":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "breeze":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "camel":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "cat":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "cave_spider":  {
+                                         "trigger":  "minecraft:impossible"
+                                     },
+                     "chicken":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "cod":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "cow":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "creeper":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "dolphin":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "donkey":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "drowned":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "elder_guardian":  {
+                                            "trigger":  "minecraft:impossible"
+                                        },
+                     "ender_dragon":  {
+                                          "trigger":  "minecraft:impossible"
+                                      },
+                     "enderman":  {
+                                      "trigger":  "minecraft:impossible"
+                                  },
+                     "endermite":  {
+                                       "trigger":  "minecraft:impossible"
+                                   },
+                     "evoker":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "fox":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "frog":  {
+                                  "trigger":  "minecraft:impossible"
+                              },
+                     "ghast":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "giant":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "glow_squid":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "goat":  {
+                                  "trigger":  "minecraft:impossible"
+                              },
+                     "guardian":  {
+                                      "trigger":  "minecraft:impossible"
+                                  },
+                     "hoglin":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "horse":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "husk":  {
+                                  "trigger":  "minecraft:impossible"
+                              },
+                     "illusioner":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "iron_golem":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "llama":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "magma_cube":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "mooshroom":  {
+                                       "trigger":  "minecraft:impossible"
+                                   },
+                     "mule":  {
+                                  "trigger":  "minecraft:impossible"
+                              },
+                     "ocelot":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "panda":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "parrot":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "phantom":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "pig":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "piglin":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "piglin_brute":  {
+                                          "trigger":  "minecraft:impossible"
+                                      },
+                     "pillager":  {
+                                      "trigger":  "minecraft:impossible"
+                                  },
+                     "polar_bear":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "pufferfish":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "rabbit":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "ravager":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "salmon":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "sheep":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "shulker":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "silverfish":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "skeleton":  {
+                                      "trigger":  "minecraft:impossible"
+                                  },
+                     "skeleton_horse":  {
+                                            "trigger":  "minecraft:impossible"
+                                        },
+                     "slime":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "sniffer":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "snow_golem":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "spider":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "squid":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "stray":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "strider":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "tadpole":  {
+                                     "trigger":  "minecraft:impossible"
+                                 },
+                     "trader_llama":  {
+                                          "trigger":  "minecraft:impossible"
+                                      },
+                     "tropical_fish":  {
+                                           "trigger":  "minecraft:impossible"
+                                       },
+                     "turtle":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "vex":  {
+                                 "trigger":  "minecraft:impossible"
+                             },
+                     "villager":  {
+                                      "trigger":  "minecraft:impossible"
+                                  },
+                     "vindicator":  {
+                                        "trigger":  "minecraft:impossible"
+                                    },
+                     "wandering_trader":  {
+                                              "trigger":  "minecraft:impossible"
+                                          },
+                     "warden":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "witch":  {
+                                   "trigger":  "minecraft:impossible"
+                               },
+                     "wither":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "wither_skeleton":  {
+                                             "trigger":  "minecraft:impossible"
+                                         },
+                     "wolf":  {
+                                  "trigger":  "minecraft:impossible"
+                              },
+                     "zoglin":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "zombie":  {
+                                    "trigger":  "minecraft:impossible"
+                                },
+                     "zombie_horse":  {
+                                          "trigger":  "minecraft:impossible"
+                                      },
+                     "zombie_villager":  {
+                                             "trigger":  "minecraft:impossible"
+                                         },
+                     "zombified_piglin":  {
+                                              "trigger":  "minecraft:impossible"
+                                          }
+                 },
+    "requirements":  [
+                         [
+                             "allay"
+                         ],
+                         [
+                             "armadillo"
+                         ],
+                         [
+                             "axolotl"
+                         ],
+                         [
+                             "bat"
+                         ],
+                         [
+                             "bee"
+                         ],
+                         [
+                             "blaze"
+                         ],
+                         [
+                             "bogged"
+                         ],
+                         [
+                             "breeze"
+                         ],
+                         [
+                             "camel"
+                         ],
+                         [
+                             "cat"
+                         ],
+                         [
+                             "cave_spider"
+                         ],
+                         [
+                             "chicken"
+                         ],
+                         [
+                             "cod"
+                         ],
+                         [
+                             "cow"
+                         ],
+                         [
+                             "creeper"
+                         ],
+                         [
+                             "dolphin"
+                         ],
+                         [
+                             "donkey"
+                         ],
+                         [
+                             "drowned"
+                         ],
+                         [
+                             "elder_guardian"
+                         ],
+                         [
+                             "ender_dragon"
+                         ],
+                         [
+                             "enderman"
+                         ],
+                         [
+                             "endermite"
+                         ],
+                         [
+                             "evoker"
+                         ],
+                         [
+                             "fox"
+                         ],
+                         [
+                             "frog"
+                         ],
+                         [
+                             "ghast"
+                         ],
+                         [
+                             "giant"
+                         ],
+                         [
+                             "glow_squid"
+                         ],
+                         [
+                             "goat"
+                         ],
+                         [
+                             "guardian"
+                         ],
+                         [
+                             "hoglin"
+                         ],
+                         [
+                             "horse"
+                         ],
+                         [
+                             "husk"
+                         ],
+                         [
+                             "illusioner"
+                         ],
+                         [
+                             "iron_golem"
+                         ],
+                         [
+                             "llama"
+                         ],
+                         [
+                             "magma_cube"
+                         ],
+                         [
+                             "mooshroom"
+                         ],
+                         [
+                             "mule"
+                         ],
+                         [
+                             "ocelot"
+                         ],
+                         [
+                             "panda"
+                         ],
+                         [
+                             "parrot"
+                         ],
+                         [
+                             "phantom"
+                         ],
+                         [
+                             "pig"
+                         ],
+                         [
+                             "piglin"
+                         ],
+                         [
+                             "piglin_brute"
+                         ],
+                         [
+                             "pillager"
+                         ],
+                         [
+                             "polar_bear"
+                         ],
+                         [
+                             "pufferfish"
+                         ],
+                         [
+                             "rabbit"
+                         ],
+                         [
+                             "ravager"
+                         ],
+                         [
+                             "salmon"
+                         ],
+                         [
+                             "sheep"
+                         ],
+                         [
+                             "shulker"
+                         ],
+                         [
+                             "silverfish"
+                         ],
+                         [
+                             "skeleton"
+                         ],
+                         [
+                             "skeleton_horse"
+                         ],
+                         [
+                             "slime"
+                         ],
+                         [
+                             "sniffer"
+                         ],
+                         [
+                             "snow_golem"
+                         ],
+                         [
+                             "spider"
+                         ],
+                         [
+                             "squid"
+                         ],
+                         [
+                             "stray"
+                         ],
+                         [
+                             "strider"
+                         ],
+                         [
+                             "tadpole"
+                         ],
+                         [
+                             "trader_llama"
+                         ],
+                         [
+                             "tropical_fish"
+                         ],
+                         [
+                             "turtle"
+                         ],
+                         [
+                             "vex"
+                         ],
+                         [
+                             "villager"
+                         ],
+                         [
+                             "vindicator"
+                         ],
+                         [
+                             "wandering_trader"
+                         ],
+                         [
+                             "warden"
+                         ],
+                         [
+                             "witch"
+                         ],
+                         [
+                             "wither"
+                         ],
+                         [
+                             "wither_skeleton"
+                         ],
+                         [
+                             "wolf"
+                         ],
+                         [
+                             "zoglin"
+                         ],
+                         [
+                             "zombie"
+                         ],
+                         [
+                             "zombie_horse"
+                         ],
+                         [
+                             "zombie_villager"
+                         ],
+                         [
+                             "zombified_piglin"
+                         ]
+                     ],
+    "rewards":  {
+                    "experience":  500
+                }
+}

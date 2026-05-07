@@ -4,6 +4,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +13,7 @@ import java.util.UUID;
 public final class SketchContextMenu {
     private static final int ROW_HEIGHT = 18;
     private static final int MAX_SUBMENU_ROWS = 5;
+    private static final int TALL_SUBMENU_ROWS = MAX_SUBMENU_ROWS * 3;
     private static final int SCROLLBAR_WIDTH = 6;
     private static final int SUBMENU_ARROW_PADDING = 14;
 
@@ -46,7 +48,8 @@ public final class SketchContextMenu {
             this.openSubmenuIndex = -1;
             this.submenuScrollOffset = 0;
         } else {
-            this.submenuScrollOffset = clampSubmenuScroll(this.entries.get(this.openSubmenuIndex).children(), this.submenuScrollOffset);
+            Entry root = this.entries.get(this.openSubmenuIndex);
+            this.submenuScrollOffset = clampSubmenuScroll(root.children(), this.submenuScrollOffset, root.maxSubmenuRows());
         }
     }
 
@@ -194,7 +197,16 @@ public final class SketchContextMenu {
             if (hovered) {
                 graphics.fill(left + 1, rowTop + 1, left + contentWidth - 1, rowTop + ROW_HEIGHT - 1, 0x30A58F6A);
             }
-            graphics.drawString(font, entry.label(), left + 6, rowTop + 5, entry.active() ? 0x3A342E : 0x7A756D, false);
+            int labelLeft = left + 6;
+            if (!entry.icon().isEmpty()) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(labelLeft, rowTop + 3, 0.0F);
+                graphics.pose().scale(0.75F, 0.75F, 1.0F);
+                graphics.renderItem(entry.icon(), 0, 0);
+                graphics.pose().popPose();
+                labelLeft += 14;
+            }
+            graphics.drawString(font, entry.label(), labelLeft, rowTop + 5, entry.active() ? 0x3A342E : 0x7A756D, false);
             if (drawArrow && !entry.children().isEmpty()) {
                 graphics.drawString(font, Component.translatable("menu.sketchbook.submenu_arrow"), left + contentWidth - 10, rowTop + 5, entry.active() ? 0x3A342E : 0x7A756D, false);
             }
@@ -261,8 +273,8 @@ public final class SketchContextMenu {
         }
 
         List<Entry> children = root.children();
-        int visibleRowCount = Math.min(children.size(), MAX_SUBMENU_ROWS);
-        int scrollOffset = clampSubmenuScroll(children, this.submenuScrollOffset);
+        int visibleRowCount = Math.min(children.size(), root.maxSubmenuRows());
+        int scrollOffset = clampSubmenuScroll(children, this.submenuScrollOffset, root.maxSubmenuRows());
         int submenuWidth = menuWidth(children, font, children.size() > visibleRowCount);
         int preferredRightLeft = this.left + this.width + 2;
         int preferredLeftLeft = this.left - submenuWidth - 2;
@@ -282,6 +294,9 @@ public final class SketchContextMenu {
     private static int menuWidth(List<Entry> entries, Font font, boolean hasScrollbar) {
         int baseWidth = entries.stream().mapToInt(entry -> {
             int width = font.width(entry.label()) + 12;
+            if (!entry.icon().isEmpty()) {
+                width += 14;
+            }
             if (!entry.children().isEmpty()) {
                 width += SUBMENU_ARROW_PADDING;
             }
@@ -295,21 +310,34 @@ public final class SketchContextMenu {
         return Mth.clamp(scrollOffset, 0, maxOffset);
     }
 
-    public record Entry(Component label, boolean active, Runnable action, List<Entry> children, boolean closeOnClick, Optional<UUID> memoryId) {
+    private static int clampSubmenuScroll(List<Entry> children, int scrollOffset, int maxRows) {
+        int maxOffset = Math.max(0, children.size() - maxRows);
+        return Mth.clamp(scrollOffset, 0, maxOffset);
+    }
+
+    public record Entry(Component label, boolean active, Runnable action, List<Entry> children, boolean closeOnClick, Optional<UUID> memoryId, ItemStack icon, int maxSubmenuRows) {
         public static Entry action(Component label, boolean active, Runnable action) {
-            return new Entry(label, active, action, List.of(), true, Optional.empty());
+            return new Entry(label, active, action, List.of(), true, Optional.empty(), ItemStack.EMPTY, MAX_SUBMENU_ROWS);
+        }
+
+        public static Entry iconAction(Component label, ItemStack icon, boolean active, Runnable action) {
+            return new Entry(label, active, action, List.of(), true, Optional.empty(), icon, MAX_SUBMENU_ROWS);
         }
 
         public static Entry memoryAction(Component label, boolean active, UUID memoryId, Runnable action) {
-            return new Entry(label, active, action, List.of(), true, Optional.of(memoryId));
+            return new Entry(label, active, action, List.of(), true, Optional.of(memoryId), ItemStack.EMPTY, MAX_SUBMENU_ROWS);
         }
 
         public static Entry stickyAction(Component label, boolean active, Runnable action) {
-            return new Entry(label, active, action, List.of(), false, Optional.empty());
+            return new Entry(label, active, action, List.of(), false, Optional.empty(), ItemStack.EMPTY, MAX_SUBMENU_ROWS);
         }
 
         public static Entry submenu(Component label, boolean active, List<Entry> children) {
-            return new Entry(label, active, () -> { }, children, false, Optional.empty());
+            return new Entry(label, active, () -> { }, children, false, Optional.empty(), ItemStack.EMPTY, MAX_SUBMENU_ROWS);
+        }
+
+        public static Entry tallSubmenu(Component label, boolean active, List<Entry> children) {
+            return new Entry(label, active, () -> { }, children, false, Optional.empty(), ItemStack.EMPTY, TALL_SUBMENU_ROWS);
         }
     }
 

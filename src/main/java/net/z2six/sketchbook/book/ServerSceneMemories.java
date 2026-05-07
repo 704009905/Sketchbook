@@ -87,7 +87,7 @@ public final class ServerSceneMemories {
         SketchStorageSavedData.get(player.getServer()).put(referenceId, storedSketch);
         BookSketches.applyReference(book, pageIndex, referenceId);
 
-        BookSketchSyncPayload payload = new BookSketchSyncPayload(target, pageIndex, Optional.of(referenceId), Optional.of(storedSketch.sketch()), storedSketch.sourceImage(), storedSketch.colorMask());
+        BookSketchSyncPayload payload = BookSketchSyncPayload.image(target, pageIndex, referenceId, storedSketch.sketch(), storedSketch.sourceImage(), storedSketch.colorMask());
         if (target.isLectern()) {
             ScholarCommonCompat.broadcastLecternUpdate(player, target, payload);
         } else {

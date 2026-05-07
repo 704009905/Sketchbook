@@ -1,0 +1,18 @@
+﻿{
+    "parent":  "sketchbook:study_detail/root",
+    "display":  {
+                    "icon":  {
+                                 "id":  "minecraft:writable_book"
+                             },
+                    "title":  "Detailed Study: Pufferfish",
+                    "description":  "Study a Pufferfish in great detail",
+                    "frame":  "task",
+                    "show_toast":  true,
+                    "announce_to_chat":  false
+                },
+    "criteria":  {
+                     "studied":  {
+                                     "trigger":  "minecraft:impossible"
+                                 }
+                 }
+}

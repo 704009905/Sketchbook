@@ -38,17 +38,7 @@ public record BookSketchRequestPayload(BookSketchTarget target, int pageIndex) i
                     serverPlayer.inventoryMenu.broadcastChanges();
                     serverPlayer.containerMenu.broadcastChanges();
                 }
-                PacketDistributor.sendToPlayer(
-                    serverPlayer,
-                    new BookSketchSyncPayload(
-                        payload.target(),
-                        payload.pageIndex(),
-                        java.util.Optional.of(resolved.referenceId()),
-                        java.util.Optional.of(resolved.sketch()),
-                        resolved.sourceImage(),
-                        resolved.colorMask()
-                    )
-                );
+                PacketDistributor.sendToPlayer(serverPlayer, BookSketchSyncPayload.image(payload.target(), payload.pageIndex(), resolved.referenceId(), resolved.sketch(), resolved.sourceImage(), resolved.colorMask()));
             });
         });
     }

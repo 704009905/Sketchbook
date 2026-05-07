@@ -64,14 +64,7 @@ public record BookSketchColorPayload(BookSketchTarget target, int pageIndex, int
             }
 
             resolved.ifPresent(resolvedSketch -> {
-                BookSketchSyncPayload syncPayload = new BookSketchSyncPayload(
-                    payload.target(),
-                    payload.pageIndex(),
-                    java.util.Optional.of(resolvedSketch.referenceId()),
-                    java.util.Optional.of(resolvedSketch.sketch()),
-                    resolvedSketch.sourceImage(),
-                    resolvedSketch.colorMask()
-                );
+                BookSketchSyncPayload syncPayload = BookSketchSyncPayload.image(payload.target(), payload.pageIndex(), resolvedSketch.referenceId(), resolvedSketch.sketch(), resolvedSketch.sourceImage(), resolvedSketch.colorMask());
                 if (payload.target().isLectern()) {
                     ScholarCommonCompat.broadcastLecternUpdate(serverPlayer, payload.target(), syncPayload);
                 } else {

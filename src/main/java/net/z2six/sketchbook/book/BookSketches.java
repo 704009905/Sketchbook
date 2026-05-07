@@ -36,6 +36,11 @@ public final class BookSketches {
         return entry == null ? Optional.empty() : entry.referenceId();
     }
 
+    public static Optional<BookEntitySketch> getEntitySketch(ItemStack book, int pageIndex) {
+        SketchPageEntry entry = getEntry(book, pageIndex);
+        return entry == null ? Optional.empty() : entry.entitySketch();
+    }
+
     public static boolean hasSketch(ItemStack book, int pageIndex) {
         SketchBookData data = book.get(Sketchbook.BOOK_SKETCHES);
         return data != null && data.hasSketch(pageIndex);
@@ -51,6 +56,11 @@ public final class BookSketches {
         applyReference(book, pages, pageIndex, referenceId);
     }
 
+    public static void applyEntitySketch(ItemStack book, int pageIndex, BookEntitySketch sketch) {
+        List<String> pages = getPages(book, pageIndex);
+        applyEntitySketch(book, pages, pageIndex, sketch);
+    }
+
     public static void removeSketch(ItemStack book, int pageIndex) {
         List<String> pages = getPages(book, pageIndex);
         removeSketch(book, pages, pageIndex);
@@ -62,6 +72,10 @@ public final class BookSketches {
 
     public static void applyReference(ItemStack book, List<String> pages, int pageIndex, UUID referenceId) {
         applyEntry(book, pages, pageIndex, SketchPageEntry.reference(referenceId));
+    }
+
+    public static void applyEntitySketch(ItemStack book, List<String> pages, int pageIndex, BookEntitySketch sketch) {
+        applyEntry(book, pages, pageIndex, SketchPageEntry.entity(sketch));
     }
 
     public static void applyEntry(ItemStack book, List<String> pages, int pageIndex, SketchPageEntry entry) {

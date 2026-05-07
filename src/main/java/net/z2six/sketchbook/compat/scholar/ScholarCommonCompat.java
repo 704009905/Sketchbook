@@ -12,6 +12,7 @@ import net.z2six.sketchbook.SketchbookItems;
 import net.z2six.sketchbook.SketchbookLog;
 import net.z2six.sketchbook.book.BookSketchTarget;
 import net.z2six.sketchbook.book.BookSketches;
+import net.z2six.sketchbook.book.BookEntitySketch;
 import net.z2six.sketchbook.book.CapturedSketch;
 import net.z2six.sketchbook.book.ServerBookSketches;
 import net.z2six.sketchbook.network.BookSketchSyncPayload;
@@ -55,7 +56,7 @@ public final class ScholarCommonCompat {
             broadcastLecternUpdate(
                 serverPlayer,
                 target,
-                new BookSketchSyncPayload(target, pageIndex, Optional.of(referenceId), Optional.of(sketch.get().sketch()), Optional.of(sketch.get().sourceImage()), 0)
+                BookSketchSyncPayload.image(target, pageIndex, referenceId, sketch.get().sketch(), Optional.of(sketch.get().sourceImage()), 0)
             );
             SketchbookLog.info(
                 "Sketchbook placed lectern sketch ref {} for player {} page {} target {}.",
@@ -74,6 +75,33 @@ public final class ScholarCommonCompat {
                 target
             );
         }
+        return true;
+    }
+
+    public static boolean handleEntitySketchUpdate(ServerPlayer serverPlayer, BookSketchTarget target, int pageIndex, BookEntitySketch sketch) {
+        ItemStack book = getLecternBook(serverPlayer, target);
+        if (!book.is(Items.WRITABLE_BOOK)) {
+            return false;
+        }
+
+        String pageText = BookSketches.getPageText(book, pageIndex);
+        Optional<BookEntitySketch> existingEntitySketch = BookSketches.getEntitySketch(book, pageIndex);
+        boolean hasExistingEntitySketch = existingEntitySketch.isPresent();
+        if (!hasExistingEntitySketch && !SketchbookItems.hasPencil(serverPlayer)) {
+            return false;
+        }
+        if (existingEntitySketch.map(existing -> existing.detailMask() != sketch.detailMask()).orElse(false) && !SketchbookItems.hasPencil(serverPlayer)) {
+            return false;
+        }
+        if (BookSketches.hasSketch(book, pageIndex) && BookSketches.getEntitySketch(book, pageIndex).isEmpty()) {
+            return false;
+        }
+        if (!hasExistingEntitySketch && !BookSketches.canSketchOnText(pageText)) {
+            return false;
+        }
+
+        BookSketches.applyEntitySketch(book, pageIndex, sketch);
+        broadcastLecternUpdate(serverPlayer, target, BookSketchSyncPayload.entity(target, pageIndex, sketch));
         return true;
     }
 

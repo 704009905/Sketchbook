@@ -83,7 +83,7 @@ public record BookSketchPayload(BookSketchTarget target, int pageIndex, Optional
                 serverPlayer.containerMenu.broadcastChanges();
                 PacketDistributor.sendToPlayer(
                     serverPlayer,
-                    new BookSketchSyncPayload(payload.target(), payload.pageIndex(), Optional.of(referenceId), Optional.of(payload.sketch().get().sketch()), Optional.of(payload.sketch().get().sourceImage()), 0)
+                    BookSketchSyncPayload.image(payload.target(), payload.pageIndex(), referenceId, payload.sketch().get().sketch(), Optional.of(payload.sketch().get().sourceImage()), 0)
                 );
                 SketchbookLog.info(
                     "Sketchbook placed sketch ref {} for player {} page {} target {}.",
