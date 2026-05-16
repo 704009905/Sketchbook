@@ -25,6 +25,7 @@ import net.z2six.sketchbook.command.SketchbookCommands;
 import net.z2six.sketchbook.compat.curios.CuriosCompat;
 import net.z2six.sketchbook.network.BookSketchPayload;
 import net.z2six.sketchbook.network.BookEntitySketchPayload;
+import net.z2six.sketchbook.network.BookItemSketchPayload;
 import net.z2six.sketchbook.network.BookSketchColorPayload;
 import net.z2six.sketchbook.network.BookSketchRequestPayload;
 import net.z2six.sketchbook.network.BookSketchSyncPayload;
@@ -91,6 +92,7 @@ public class Sketchbook {
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToServer(BookEntitySketchPayload.TYPE, BookEntitySketchPayload.STREAM_CODEC, BookEntitySketchPayload::handle);
+        registrar.playToServer(BookItemSketchPayload.TYPE, BookItemSketchPayload.STREAM_CODEC, BookItemSketchPayload::handle);
         registrar.playToServer(BookSketchPayload.TYPE, BookSketchPayload.STREAM_CODEC, BookSketchPayload::handle);
         registrar.playToServer(BookSketchColorPayload.TYPE, BookSketchColorPayload.STREAM_CODEC, BookSketchColorPayload::handle);
         registrar.playToServer(BookSketchRequestPayload.TYPE, BookSketchRequestPayload.STREAM_CODEC, BookSketchRequestPayload::handle);

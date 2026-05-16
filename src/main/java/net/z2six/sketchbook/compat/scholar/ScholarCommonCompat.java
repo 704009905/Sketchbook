@@ -13,6 +13,7 @@ import net.z2six.sketchbook.SketchbookLog;
 import net.z2six.sketchbook.book.BookSketchTarget;
 import net.z2six.sketchbook.book.BookSketches;
 import net.z2six.sketchbook.book.BookEntitySketch;
+import net.z2six.sketchbook.book.BookItemSketch;
 import net.z2six.sketchbook.book.CapturedSketch;
 import net.z2six.sketchbook.book.ServerBookSketches;
 import net.z2six.sketchbook.network.BookSketchSyncPayload;
@@ -83,6 +84,7 @@ public final class ScholarCommonCompat {
         if (!book.is(Items.WRITABLE_BOOK)) {
             return false;
         }
+        BookEntitySketch requestedSketch = sketch;
 
         String pageText = BookSketches.getPageText(book, pageIndex);
         Optional<BookEntitySketch> existingEntitySketch = BookSketches.getEntitySketch(book, pageIndex);
@@ -90,8 +92,16 @@ public final class ScholarCommonCompat {
         if (!hasExistingEntitySketch && !SketchbookItems.hasPencil(serverPlayer)) {
             return false;
         }
-        if (existingEntitySketch.map(existing -> existing.detailMask() != sketch.detailMask()).orElse(false) && !SketchbookItems.hasPencil(serverPlayer)) {
+        if (existingEntitySketch.map(existing -> existing.detailMask() != requestedSketch.detailMask()).orElse(false) && !SketchbookItems.hasPencil(serverPlayer)) {
             return false;
+        }
+        boolean colorChanged = existingEntitySketch.map(existing -> existing.colorMask() != requestedSketch.colorMask()).orElse(false);
+        if (colorChanged && !SketchbookItems.hasPencil(serverPlayer)) {
+            return false;
+        }
+        BookEntitySketch appliedSketch = requestedSketch;
+        if (colorChanged) {
+            appliedSketch = requestedSketch.withColorMask(requestedSketch.colorMask() & SketchbookItems.getAvailableColoredPencilMask(serverPlayer));
         }
         if (BookSketches.hasSketch(book, pageIndex) && BookSketches.getEntitySketch(book, pageIndex).isEmpty()) {
             return false;
@@ -100,8 +110,41 @@ public final class ScholarCommonCompat {
             return false;
         }
 
-        BookSketches.applyEntitySketch(book, pageIndex, sketch);
-        broadcastLecternUpdate(serverPlayer, target, BookSketchSyncPayload.entity(target, pageIndex, sketch));
+        BookSketches.applyEntitySketch(book, pageIndex, appliedSketch);
+        broadcastLecternUpdate(serverPlayer, target, BookSketchSyncPayload.entity(target, pageIndex, appliedSketch));
+        return true;
+    }
+
+    public static boolean handleItemSketchUpdate(ServerPlayer serverPlayer, BookSketchTarget target, int pageIndex, BookItemSketch sketch) {
+        ItemStack book = getLecternBook(serverPlayer, target);
+        if (!book.is(Items.WRITABLE_BOOK)) {
+            return false;
+        }
+        BookItemSketch requestedSketch = sketch;
+
+        String pageText = BookSketches.getPageText(book, pageIndex);
+        Optional<BookItemSketch> existingItemSketch = BookSketches.getItemSketch(book, pageIndex);
+        boolean hasExistingItemSketch = existingItemSketch.isPresent();
+        if (!hasExistingItemSketch && !SketchbookItems.hasPencil(serverPlayer)) {
+            return false;
+        }
+        boolean colorChanged = existingItemSketch.map(existing -> existing.colorMask() != requestedSketch.colorMask()).orElse(false);
+        if (colorChanged && !SketchbookItems.hasPencil(serverPlayer)) {
+            return false;
+        }
+        BookItemSketch appliedSketch = requestedSketch;
+        if (colorChanged) {
+            appliedSketch = requestedSketch.withColorMask(requestedSketch.colorMask() & SketchbookItems.getAvailableColoredPencilMask(serverPlayer));
+        }
+        if (BookSketches.hasSketch(book, pageIndex) && BookSketches.getItemSketch(book, pageIndex).isEmpty()) {
+            return false;
+        }
+        if (!hasExistingItemSketch && !BookSketches.canSketchOnText(pageText)) {
+            return false;
+        }
+
+        BookSketches.applyItemSketch(book, pageIndex, appliedSketch);
+        broadcastLecternUpdate(serverPlayer, target, BookSketchSyncPayload.item(target, pageIndex, appliedSketch));
         return true;
     }
 

@@ -15,4 +15,18 @@ public interface ContainerEventHandlerMixin {
             cir.setReturnValue(true);
         }
     }
+
+    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
+    private void sketchbook$charTyped(char codePoint, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if ((Object)this instanceof SketchBookScreenBridge bridge && bridge.sketchbook$handleOverlayChar(codePoint)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    private void sketchbook$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if ((Object)this instanceof SketchBookScreenBridge bridge && bridge.sketchbook$handleOverlayKey(keyCode, scanCode, modifiers)) {
+            cir.setReturnValue(true);
+        }
+    }
 }

@@ -41,14 +41,15 @@ public record BookEntitySketchPayload(BookSketchTarget target, int pageIndex, Bo
                 return;
             }
 
+            BookEntitySketch requestedSketch = payload.sketch();
             EntityScanSavedData scans = EntityScanSavedData.get(player.getServer());
-            if (!scans.hasIdentified(player.getUUID(), payload.sketch().study())) {
+            if (!scans.hasIdentified(player.getUUID(), requestedSketch.study())) {
                 fail(player, payload, "message.sketchbook.entity_sketch_failed_unknown", "Sketchbook rejected entity sketch for player {} page {} target {} because the entity was not identified.");
                 return;
             }
 
             if (payload.target().isLectern()) {
-                if (!ScholarCommonCompat.handleEntitySketchUpdate(player, payload.target(), payload.pageIndex(), payload.sketch())) {
+                if (!ScholarCommonCompat.handleEntitySketchUpdate(player, payload.target(), payload.pageIndex(), requestedSketch)) {
                     fail(player, payload, "message.sketchbook.sketch_failed_page_unavailable", "Sketchbook rejected lectern entity sketch for player {} page {} target {} because the lectern book or page was unavailable.");
                 }
                 return;
@@ -67,9 +68,18 @@ public record BookEntitySketchPayload(BookSketchTarget target, int pageIndex, Bo
                 fail(player, payload, "message.sketchbook.sketch_failed_no_pencil", "Sketchbook rejected entity sketch placement for player {} page {} target {} because no required pencil was available.");
                 return;
             }
-            if (existingEntitySketch.map(existing -> existing.detailMask() != payload.sketch().detailMask()).orElse(false) && !SketchbookItems.hasPencil(player)) {
+            if (existingEntitySketch.map(existing -> existing.detailMask() != requestedSketch.detailMask()).orElse(false) && !SketchbookItems.hasPencil(player)) {
                 fail(player, payload, "message.sketchbook.sketch_failed_no_pencil", "Sketchbook rejected entity detail update for player {} page {} target {} because no required pencil was available.");
                 return;
+            }
+            boolean colorChanged = existingEntitySketch.map(existing -> existing.colorMask() != requestedSketch.colorMask()).orElse(false);
+            if (colorChanged && !SketchbookItems.hasPencil(player)) {
+                fail(player, payload, "message.sketchbook.sketch_failed_no_pencil", "Sketchbook rejected entity color update for player {} page {} target {} because no required pencil was available.");
+                return;
+            }
+            BookEntitySketch appliedSketch = requestedSketch;
+            if (colorChanged) {
+                appliedSketch = requestedSketch.withColorMask(requestedSketch.colorMask() & SketchbookItems.getAvailableColoredPencilMask(player));
             }
             if (BookSketches.hasSketch(book, payload.pageIndex()) && BookSketches.getEntitySketch(book, payload.pageIndex()).isEmpty()) {
                 fail(player, payload, "message.sketchbook.sketch_failed_page_unavailable", "Sketchbook rejected entity sketch for player {} page {} target {} because the page was not sketchable.");
@@ -80,10 +90,10 @@ public record BookEntitySketchPayload(BookSketchTarget target, int pageIndex, Bo
                 return;
             }
 
-            BookSketches.applyEntitySketch(book, payload.pageIndex(), payload.sketch());
+            BookSketches.applyEntitySketch(book, payload.pageIndex(), appliedSketch);
             player.inventoryMenu.broadcastChanges();
             player.containerMenu.broadcastChanges();
-            PacketDistributor.sendToPlayer(player, BookSketchSyncPayload.entity(payload.target(), payload.pageIndex(), payload.sketch()));
+            PacketDistributor.sendToPlayer(player, BookSketchSyncPayload.entity(payload.target(), payload.pageIndex(), appliedSketch));
         });
     }
 

@@ -21,6 +21,8 @@ public final class BookSketchSyncClientHandler {
         if (minecraft.screen instanceof SketchBookScreenBridge bridge && bridge.sketchbook$getTarget().equals(payload.target())) {
             if (payload.entitySketch().isPresent()) {
                 bridge.sketchbook$setEntitySketch(payload.pageIndex(), payload.entitySketch().get());
+            } else if (payload.itemSketch().isPresent()) {
+                bridge.sketchbook$setItemSketch(payload.pageIndex(), payload.itemSketch().get());
             } else if (payload.sketchId().isPresent()) {
                 if (!bridge.sketchbook$getSketchReference(payload.pageIndex()).filter(payload.sketchId().get()::equals).isPresent()) {
                     bridge.sketchbook$setSketchReference(payload.pageIndex(), payload.sketchId().get());
@@ -43,6 +45,8 @@ public final class BookSketchSyncClientHandler {
 
         if (payload.entitySketch().isPresent()) {
             BookSketches.applyEntitySketch(book, payload.pageIndex(), payload.entitySketch().get());
+        } else if (payload.itemSketch().isPresent()) {
+            BookSketches.applyItemSketch(book, payload.pageIndex(), payload.itemSketch().get());
         } else if (payload.sketchId().isPresent()) {
             BookSketches.applyReference(book, payload.pageIndex(), payload.sketchId().get());
         } else {

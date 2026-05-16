@@ -189,7 +189,7 @@ public final class EntitySketchRenderer {
         }
 
         try (NativeImage source = readCapture()) {
-            GraphiteImage graphite = createGraphiteImage(source);
+            GraphiteImage graphite = createGraphiteImage(source, key.colorMask());
             if (graphite == null) {
                 return null;
             }
@@ -217,7 +217,7 @@ public final class EntitySketchRenderer {
         return image;
     }
 
-    private static GraphiteImage createGraphiteImage(NativeImage source) {
+    private static GraphiteImage createGraphiteImage(NativeImage source, int colorMask) {
         int size = CAPTURE_WIDTH * CAPTURE_HEIGHT;
         int[] luminance = new int[size];
         int[] normalized = new int[size];
@@ -275,11 +275,17 @@ public final class EntitySketchRenderer {
                 tone -= Math.min(0.34F, outline / 620.0F);
                 tone = Math.max(0.0F, Math.min(1.0F, tone));
 
-                int red = lerp(GRAPHITE_RED, PageSketch.PAPER_RED, tone);
-                int green = lerp(GRAPHITE_GREEN, PageSketch.PAPER_GREEN, tone);
-                int blue = lerp(GRAPHITE_BLUE, PageSketch.PAPER_BLUE, tone);
+                int nativeRgb = colorMask == 0
+                    ? GRAPHITE_BLUE << 16 | GRAPHITE_GREEN << 8 | GRAPHITE_RED
+                    : SketchRenderColorizer.colorize(source.getPixelRGBA(x, y) & 0xFF, source.getPixelRGBA(x, y) >> 8 & 0xFF, source.getPixelRGBA(x, y) >> 16 & 0xFF, tone, colorMask);
+                if (colorMask == 0) {
+                    int red = lerp(GRAPHITE_RED, PageSketch.PAPER_RED, tone);
+                    int green = lerp(GRAPHITE_GREEN, PageSketch.PAPER_GREEN, tone);
+                    int blue = lerp(GRAPHITE_BLUE, PageSketch.PAPER_BLUE, tone);
+                    nativeRgb = blue << 16 | green << 8 | red;
+                }
                 int outAlpha = clamp(Math.round(235.0F * (pixelAlpha / 255.0F)), 0, 235);
-                output.setPixelRGBA(x, y, outAlpha << 24 | blue << 16 | green << 8 | red);
+                output.setPixelRGBA(x, y, outAlpha << 24 | nativeRgb);
                 if (outAlpha > 8) {
                     minX = Math.min(minX, x);
                     minY = Math.min(minY, y);
@@ -405,11 +411,11 @@ public final class EntitySketchRenderer {
         }
     }
 
-    private record GraphiteKey(EntityStudy study, int scale, int rotation) {
+    private record GraphiteKey(EntityStudy study, int scale, int rotation, int colorMask) {
         private static GraphiteKey from(BookEntitySketch sketch) {
             int quantizedScale = Math.max(8, Math.min(160, Math.round(sketch.scale())));
             int quantizedRotation = Math.floorMod(Math.round(sketch.rotation()), 360);
-            return new GraphiteKey(sketch.study(), quantizedScale, quantizedRotation);
+            return new GraphiteKey(sketch.study(), quantizedScale, quantizedRotation, sketch.colorMask());
         }
     }
 

@@ -9,6 +9,7 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.z2six.sketchbook.SketchbookItems;
 import net.z2six.sketchbook.book.BookEntitySketch;
+import net.z2six.sketchbook.book.BookItemSketch;
 import net.z2six.sketchbook.book.BookSketchTarget;
 import net.z2six.sketchbook.book.BookSketches;
 import net.z2six.sketchbook.book.EntityDetail;
@@ -24,6 +25,9 @@ import net.z2six.sketchbook.client.ClientEntityScanCache;
 import net.z2six.sketchbook.client.ClientSketchCache;
 import net.z2six.sketchbook.client.ClientSketchRequestManager;
 import net.z2six.sketchbook.client.EntitySketchRenderer;
+import net.z2six.sketchbook.client.ItemLinkRenderer;
+import net.z2six.sketchbook.client.ItemSearchOverlay;
+import net.z2six.sketchbook.client.ItemSketchRenderer;
 import net.z2six.sketchbook.client.SketchBookScreenBridge;
 import net.z2six.sketchbook.client.SketchCaptureController;
 import net.z2six.sketchbook.client.SketchContextMenu;
@@ -31,6 +35,7 @@ import net.z2six.sketchbook.client.SketchPageRenderer;
 import net.z2six.sketchbook.image.SketchImageProcessor;
 import net.z2six.sketchbook.network.BookSketchColorPayload;
 import net.z2six.sketchbook.network.BookEntitySketchPayload;
+import net.z2six.sketchbook.network.BookItemSketchPayload;
 import net.z2six.sketchbook.network.BookSketchPayload;
 import net.z2six.sketchbook.network.RipSketchPagePayload;
 import net.z2six.sketchbook.network.UseSceneMemoryPayload;
@@ -64,8 +69,10 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
     @Shadow protected abstract void setTextBoxes();
 
     @Unique private final SketchContextMenu sketchbook$contextMenu = new SketchContextMenu();
+    @Unique private final ItemSearchOverlay sketchbook$itemSearch = new ItemSearchOverlay();
     @Unique private static final long sketchbook$ENTITY_SYNC_IDLE_DELAY_MS = 5000L;
     @Unique private final Map<Integer, BookEntitySketch> sketchbook$entitySketchPreviews = new HashMap<>();
+    @Unique private final Map<Integer, BookItemSketch> sketchbook$itemSketchPreviews = new HashMap<>();
     @Unique private int sketchbook$menuMouseX;
     @Unique private int sketchbook$menuMouseY;
     @Unique private int sketchbook$menuPageIndex = -1;
@@ -82,6 +89,8 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
     @Unique private double sketchbook$lastDragMouseY;
     @Unique private final Map<Integer, BookEntitySketch> sketchbook$pendingEntitySyncs = new HashMap<>();
     @Unique private final Map<Integer, Long> sketchbook$pendingEntitySyncDeadlines = new HashMap<>();
+    @Unique private final Map<Integer, BookItemSketch> sketchbook$pendingItemSyncs = new HashMap<>();
+    @Unique private final Map<Integer, Long> sketchbook$pendingItemSyncDeadlines = new HashMap<>();
 
     protected SpreadBookEditScreenMixin(Component title) {
         super(title);
@@ -106,6 +115,15 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void sketchbook$mouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        if (this.sketchbook$itemSearch.isVisible()) {
+            if (this.sketchbook$itemSearch.mouseClicked(mouseX, mouseY, button)) {
+                cir.setReturnValue(true);
+                return;
+            }
+            this.sketchbook$itemSearch.clear();
+            this.sketchbook$updateSketchUi();
+        }
+
         if (this.sketchbook$contextMenu.isVisible()) {
             if (this.sketchbook$contextMenu.contains(mouseX, mouseY, this.font, this.width)) {
                 if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
@@ -120,6 +138,11 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
         int entityPageIndex = this.sketchbook$getPageAt(mouseX, mouseY);
         if (entityPageIndex >= 0 && this.sketchbook$canTransformEntitySketch() && this.sketchbook$isOverEntitySketch(entityPageIndex, mouseX, mouseY) && (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)) {
+            this.sketchbook$beginEntityDrag(entityPageIndex, button, mouseX, mouseY);
+            cir.setReturnValue(true);
+            return;
+        }
+        if (entityPageIndex >= 0 && this.sketchbook$canTransformEntitySketch() && this.sketchbook$isOverItemSketch(entityPageIndex, mouseX, mouseY) && (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)) {
             this.sketchbook$beginEntityDrag(entityPageIndex, button, mouseX, mouseY);
             cir.setReturnValue(true);
             return;
@@ -144,13 +167,29 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
     @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true, require = 0)
     private void sketchbook$mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY, CallbackInfoReturnable<Boolean> cir) {
+        if (this.sketchbook$itemSearch.mouseDragged(mouseY)) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (this.sketchbook$dragEntityPageIndex < 0 || button != this.sketchbook$dragButton) {
             return;
         }
 
         BookEntitySketch sketch = this.sketchbook$getDisplayedEntitySketch(this.sketchbook$dragEntityPageIndex).orElse(null);
         if (sketch == null) {
-            this.sketchbook$dragEntityPageIndex = -1;
+            BookItemSketch itemSketch = this.sketchbook$getDisplayedItemSketch(this.sketchbook$dragEntityPageIndex).orElse(null);
+            if (itemSketch == null) {
+                this.sketchbook$dragEntityPageIndex = -1;
+                return;
+            }
+            BookItemSketch updated = this.sketchbook$dragRotates
+                ? itemSketch.withTransform(itemSketch.x(), itemSketch.y(), itemSketch.scale(), itemSketch.yaw() + (float)(mouseX - this.sketchbook$lastDragMouseX), itemSketch.roll())
+                : itemSketch.withTransform(itemSketch.x() + (float)(mouseX - this.sketchbook$lastDragMouseX), itemSketch.y() + (float)(mouseY - this.sketchbook$lastDragMouseY), itemSketch.scale(), itemSketch.yaw(), itemSketch.roll());
+            this.sketchbook$lastDragMouseX = mouseX;
+            this.sketchbook$lastDragMouseY = mouseY;
+            this.sketchbook$setItemSketchPreview(this.sketchbook$dragEntityPageIndex, updated);
+            this.sketchbook$scheduleItemSketchSync(this.sketchbook$dragEntityPageIndex, updated);
+            cir.setReturnValue(true);
             return;
         }
 
@@ -164,8 +203,12 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         cir.setReturnValue(true);
     }
 
-    @Inject(method = "mouseReleased", at = @At("HEAD"), require = 0)
+    @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true, require = 0)
     private void sketchbook$mouseReleased(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        if (this.sketchbook$itemSearch.mouseReleased()) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (button == this.sketchbook$dragButton) {
             this.sketchbook$dragEntityPageIndex = -1;
             this.sketchbook$dragButton = -1;
@@ -183,6 +226,8 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         if (this.sketchbook$dragEntityPageIndex < 0) {
             int pageIndex = this.sketchbook$getPageAt(mouseX, mouseY);
             if (pageIndex >= 0 && GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_MIDDLE) == GLFW.GLFW_PRESS && this.sketchbook$canTransformEntitySketch() && this.sketchbook$isOverEntitySketch(pageIndex, mouseX, mouseY)) {
+                this.sketchbook$beginEntityDrag(pageIndex, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, mouseX, mouseY);
+            } else if (pageIndex >= 0 && GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_MIDDLE) == GLFW.GLFW_PRESS && this.sketchbook$canTransformEntitySketch() && this.sketchbook$isOverItemSketch(pageIndex, mouseX, mouseY)) {
                 this.sketchbook$beginEntityDrag(pageIndex, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, mouseX, mouseY);
             } else {
                 return;
@@ -204,9 +249,20 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
         BookEntitySketch sketch = this.sketchbook$getDisplayedEntitySketch(this.sketchbook$dragEntityPageIndex).orElse(null);
         if (sketch == null) {
-            this.sketchbook$dragEntityPageIndex = -1;
-            this.sketchbook$dragButton = -1;
-            this.sketchbook$dragRotates = false;
+            BookItemSketch itemSketch = this.sketchbook$getDisplayedItemSketch(this.sketchbook$dragEntityPageIndex).orElse(null);
+            if (itemSketch == null) {
+                this.sketchbook$dragEntityPageIndex = -1;
+                this.sketchbook$dragButton = -1;
+                this.sketchbook$dragRotates = false;
+                return;
+            }
+            BookItemSketch updated = this.sketchbook$dragRotates
+                ? itemSketch.withTransform(itemSketch.x(), itemSketch.y(), itemSketch.scale(), itemSketch.yaw() + (float)deltaX, itemSketch.roll())
+                : itemSketch.withTransform(itemSketch.x() + (float)deltaX, itemSketch.y() + (float)deltaY, itemSketch.scale(), itemSketch.yaw(), itemSketch.roll());
+            this.sketchbook$lastDragMouseX = mouseX;
+            this.sketchbook$lastDragMouseY = mouseY;
+            this.sketchbook$setItemSketchPreview(this.sketchbook$dragEntityPageIndex, updated);
+            this.sketchbook$scheduleItemSketchSync(this.sketchbook$dragEntityPageIndex, updated);
             return;
         }
 
@@ -236,13 +292,42 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         this.sketchbook$renderPageSketch(graphics, this.sketchbook$getLeftPageIndex(), spread.sketchbook$getLeftPos() + 22, spread.sketchbook$getTopPos() + 21);
         this.sketchbook$renderPageSketch(graphics, this.sketchbook$getRightPageIndex(), spread.sketchbook$getLeftPos() + 159, spread.sketchbook$getTopPos() + 21);
         this.sketchbook$contextMenu.render(graphics, this.font, mouseX, mouseY, this.width);
+        this.sketchbook$itemSearch.render(graphics, this.font, mouseX, mouseY);
         this.sketchbook$updateEntityDrag(mouseX, mouseY);
         this.sketchbook$tickEntitySketchSync();
+        this.sketchbook$tickItemSketchSync();
+    }
+
+    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true, require = 0)
+    private void sketchbook$charTyped(char codePoint, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (this.sketchbook$itemSearch.isVisible() && this.sketchbook$itemSearch.charTyped(codePoint)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "charTyped", at = @At("TAIL"), require = 0)
+    private void sketchbook$breakItemLinkOnSpace(char codePoint, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (codePoint == ' ' && (ItemLinkRenderer.breakCompletedLinkOnSpace(this.pages, this.sketchbook$getLeftPageIndex()) || ItemLinkRenderer.breakCompletedLinkOnSpace(this.pages, this.sketchbook$getRightPageIndex()))) {
+            this.bookModified = true;
+            this.setTextBoxes();
+        }
+    }
+
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true, require = 0)
+    private void sketchbook$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (this.sketchbook$itemSearch.isVisible() && this.sketchbook$itemSearch.keyPressed(keyCode)) {
+            cir.setReturnValue(true);
+            return;
+        }
+        if (this.sketchbook$itemSearch.isVisible()) {
+            cir.setReturnValue(true);
+        }
     }
 
     @Inject(method = "saveChanges", at = @At("HEAD"), remap = false)
     private void sketchbook$flushEntitySketchesBeforeSave(boolean sign, String title, CallbackInfo ci) {
         this.sketchbook$flushEntitySketchSync();
+        this.sketchbook$flushItemSketchSync();
     }
 
     @Override
@@ -281,9 +366,26 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
     @Override
     public void sketchbook$setEntitySketch(int pageIndex, BookEntitySketch sketch) {
-        this.sketchbook$entitySketchPreviews.remove(pageIndex);
+        if (!this.sketchbook$pendingEntitySyncs.containsKey(pageIndex)) {
+            this.sketchbook$entitySketchPreviews.remove(pageIndex);
+        }
         boolean hadSketch = this.sketchbook$hasSketch(pageIndex);
         BookSketches.applyEntitySketch(this.bookStack, this.pages, pageIndex, sketch);
+        this.bookModified = true;
+        if (!hadSketch) {
+            this.setTextBoxes();
+            this.updateButtonVisibility();
+            this.sketchbook$updateSketchUi();
+        }
+    }
+
+    @Override
+    public void sketchbook$setItemSketch(int pageIndex, BookItemSketch sketch) {
+        if (!this.sketchbook$pendingItemSyncs.containsKey(pageIndex)) {
+            this.sketchbook$itemSketchPreviews.remove(pageIndex);
+        }
+        boolean hadSketch = this.sketchbook$hasSketch(pageIndex);
+        BookSketches.applyItemSketch(this.bookStack, this.pages, pageIndex, sketch);
         this.bookModified = true;
         if (!hadSketch) {
             this.setTextBoxes();
@@ -305,8 +407,11 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
     @Override
     public void sketchbook$removeSketch(int pageIndex) {
         this.sketchbook$entitySketchPreviews.remove(pageIndex);
+        this.sketchbook$itemSketchPreviews.remove(pageIndex);
         this.sketchbook$pendingEntitySyncs.remove(pageIndex);
         this.sketchbook$pendingEntitySyncDeadlines.remove(pageIndex);
+        this.sketchbook$pendingItemSyncs.remove(pageIndex);
+        this.sketchbook$pendingItemSyncDeadlines.remove(pageIndex);
         BookSketches.removeSketch(this.bookStack, this.pages, pageIndex);
         this.bookModified = true;
         this.setTextBoxes();
@@ -316,14 +421,37 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
     @Override
     public boolean sketchbook$handleContextScroll(double mouseX, double mouseY, double scrollY) {
+        if (this.sketchbook$itemSearch.contains(mouseX, mouseY)) {
+            return this.sketchbook$itemSearch.scroll(scrollY);
+        }
         if (this.sketchbook$contextMenu.contains(mouseX, mouseY, this.font, this.width)) {
             return this.sketchbook$contextMenu.scroll(mouseX, mouseY, scrollY, this.font);
         }
         int pageIndex = this.sketchbook$getPageAt(mouseX, mouseY);
+        if (pageIndex >= 0 && this.sketchbook$canTransformEntitySketch() && this.sketchbook$isOverItemSketch(pageIndex, mouseX, mouseY) && this.sketchbook$scaleItemSketch(pageIndex, scrollY)) {
+            return true;
+        }
         if (pageIndex >= 0 && this.sketchbook$canTransformEntitySketch() && this.sketchbook$isOverEntitySketch(pageIndex, mouseX, mouseY) && this.sketchbook$scaleEntitySketch(pageIndex, scrollY)) {
             return true;
         }
         return this.sketchbook$contextMenu.scroll(mouseX, mouseY, scrollY, this.font);
+    }
+
+    @Override
+    public boolean sketchbook$handleOverlayChar(char codePoint) {
+        return this.sketchbook$itemSearch.isVisible() && this.sketchbook$itemSearch.charTyped(codePoint);
+    }
+
+    @Override
+    public boolean sketchbook$handleOverlayKey(int keyCode, int scanCode, int modifiers) {
+        if (!this.sketchbook$itemSearch.isVisible()) {
+            return false;
+        }
+        this.sketchbook$itemSearch.keyPressed(keyCode);
+        if (!this.sketchbook$itemSearch.isVisible()) {
+            this.sketchbook$updateSketchUi();
+        }
+        return true;
     }
 
     @Override
@@ -361,9 +489,14 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             return;
         }
 
-        boolean visible = !this.sketchbook$hasSketch(pageIndex);
+        boolean visible = !this.sketchbook$itemSearch.isVisible() && !this.sketchbook$hasSketch(pageIndex);
         this.sketchbook$setTextBoxBoolean(textBox, "visible", visible);
         this.sketchbook$setTextBoxBoolean(textBox, "active", visible);
+        if (!visible) {
+            this.sketchbook$setTextBoxBoolean(textBox, "focused", false);
+            this.sketchbook$setTextBoxBoolean(textBox, "isFocused", false);
+            this.sketchbook$invokeTextBoxFocus(textBox, false);
+        }
     }
 
     @Unique
@@ -375,6 +508,15 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             }
             field.setAccessible(true);
             field.setBoolean(textBox, value);
+        } catch (ReflectiveOperationException ignored) {
+        }
+    }
+
+    @Unique
+    private void sketchbook$invokeTextBoxFocus(Object textBox, boolean focused) {
+        try {
+            java.lang.reflect.Method method = textBox.getClass().getMethod("setFocused", boolean.class);
+            method.invoke(textBox, focused);
         } catch (ReflectiveOperationException ignored) {
         }
     }
@@ -425,7 +567,9 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             SketchPageRenderer.render(graphics, left, top, 114, 128, sketch);
         } else {
             this.sketchbook$getDisplayedEntitySketch(pageIndex).ifPresent(entitySketch -> EntitySketchRenderer.render(graphics, left, top, 114, 128, entitySketch));
+            this.sketchbook$getDisplayedItemSketch(pageIndex).ifPresent(itemSketch -> ItemSketchRenderer.render(graphics, left, top, 114, 128, itemSketch));
         }
+        ItemLinkRenderer.renderLinks(graphics, this.font, this.pages, pageIndex, left, top, this.sketchbook$currentMouseX, this.sketchbook$currentMouseY);
     }
 
     @Unique
@@ -484,9 +628,21 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         return List.of(
             SketchContextMenu.Entry.action(Component.translatable("button.sketchbook.add_date"), insertableDate.isPresent(), () -> insertableDate.ifPresent(date -> this.sketchbook$insertDate(pageIndex, date))),
             SketchContextMenu.Entry.action(label, canCapture, () -> SketchCaptureController.requestCapture(this, pageIndex)),
+            SketchContextMenu.Entry.action(Component.translatable("menu.sketchbook.items"), canCapture, () -> this.sketchbook$openItemSearch(pageIndex)),
             SketchContextMenu.Entry.tallSubmenu(Component.translatable("menu.sketchbook.entities"), hasPencil && !entities.isEmpty() && this.sketchbook$canCaptureSketch(pageIndex), this.sketchbook$buildEntityEntries(pageIndex, entities, hasPencil)),
             SketchContextMenu.Entry.submenu(Component.translatable("menu.sketchbook.memories"), hasPencil && !memories.isEmpty() && this.sketchbook$canCaptureSketch(pageIndex), this.sketchbook$buildMemoryEntries(pageIndex, memories, hasPencil))
         );
+    }
+
+    @Unique
+    private void sketchbook$openItemSearch(int pageIndex) {
+        this.sketchbook$contextMenu.clear();
+        this.sketchbook$itemSearch.open(pageIndex, this.sketchbook$menuMouseX, this.sketchbook$menuMouseY, this.width, this.height, itemId -> {
+            BookItemSketch sketch = BookItemSketch.create(itemId);
+            this.sketchbook$setItemSketch(pageIndex, sketch);
+            this.sketchbook$sendItemSketchSync(pageIndex, sketch);
+        });
+        this.sketchbook$updateSketchUi();
     }
 
     @Unique
@@ -572,7 +728,9 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
     @Unique
     private boolean sketchbook$hasColorSource(int pageIndex) {
-        return BookSketches.getSketchReference(this.bookStack, pageIndex).map(ClientSketchCache::hasSource).orElse(false);
+        return BookSketches.getSketchReference(this.bookStack, pageIndex).map(ClientSketchCache::hasSource).orElse(false)
+            || this.sketchbook$getDisplayedEntitySketch(pageIndex).isPresent()
+            || this.sketchbook$getDisplayedItemSketch(pageIndex).isPresent();
     }
 
     @Unique
@@ -636,6 +794,12 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
     }
 
     @Unique
+    private boolean sketchbook$isOverItemSketch(int pageIndex, double mouseX, double mouseY) {
+        BookItemSketch sketch = this.sketchbook$getDisplayedItemSketch(pageIndex).orElse(null);
+        return sketch != null && this.sketchbook$getPageAt(mouseX, mouseY) == pageIndex;
+    }
+
+    @Unique
     private boolean sketchbook$canTransformEntitySketch() {
         return this.bookStack.is(Items.WRITABLE_BOOK);
     }
@@ -655,6 +819,24 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         BookEntitySketch updated = sketch.withTransform(sketch.x(), sketch.y(), nextScale, sketch.rotation());
         this.sketchbook$setEntitySketchPreview(pageIndex, updated);
         this.sketchbook$scheduleEntitySketchSync(pageIndex, updated);
+        return true;
+    }
+
+    @Unique
+    private boolean sketchbook$scaleItemSketch(int pageIndex, double scrollY) {
+        BookItemSketch sketch = this.sketchbook$getDisplayedItemSketch(pageIndex).orElse(null);
+        if (sketch == null || scrollY == 0.0D) {
+            return false;
+        }
+
+        float nextScale = Math.max(8.0F, Math.min(320.0F, sketch.scale() + (float)scrollY * 3.0F));
+        if (nextScale == sketch.scale()) {
+            return true;
+        }
+
+        BookItemSketch updated = sketch.withTransform(sketch.x(), sketch.y(), nextScale, sketch.yaw(), sketch.roll());
+        this.sketchbook$setItemSketchPreview(pageIndex, updated);
+        this.sketchbook$scheduleItemSketchSync(pageIndex, updated);
         return true;
     }
 
@@ -710,7 +892,66 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
     }
 
     @Unique
+    private Optional<BookItemSketch> sketchbook$getDisplayedItemSketch(int pageIndex) {
+        BookItemSketch preview = this.sketchbook$itemSketchPreviews.get(pageIndex);
+        return preview == null ? BookSketches.getItemSketch(this.bookStack, pageIndex) : Optional.of(preview);
+    }
+
+    @Unique
+    private void sketchbook$setItemSketchPreview(int pageIndex, BookItemSketch sketch) {
+        this.sketchbook$itemSketchPreviews.put(pageIndex, sketch);
+    }
+
+    @Unique
+    private void sketchbook$scheduleItemSketchSync(int pageIndex, BookItemSketch sketch) {
+        this.sketchbook$pendingItemSyncs.put(pageIndex, sketch);
+        this.sketchbook$pendingItemSyncDeadlines.put(pageIndex, System.currentTimeMillis() + sketchbook$ENTITY_SYNC_IDLE_DELAY_MS);
+    }
+
+    @Unique
+    private void sketchbook$tickItemSketchSync() {
+        if (this.sketchbook$pendingItemSyncs.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        List<Integer> readyPages = this.sketchbook$pendingItemSyncDeadlines.entrySet().stream()
+            .filter(entry -> now >= entry.getValue())
+            .map(Map.Entry::getKey)
+            .toList();
+        readyPages.forEach(this::sketchbook$flushItemSketchSync);
+    }
+
+    @Unique
+    private void sketchbook$flushItemSketchSync() {
+        List<Integer> pageIndexes = new ArrayList<>(this.sketchbook$pendingItemSyncs.keySet());
+        pageIndexes.forEach(this::sketchbook$flushItemSketchSync);
+    }
+
+    @Unique
+    private void sketchbook$flushItemSketchSync(int pageIndex) {
+        BookItemSketch sketch = this.sketchbook$pendingItemSyncs.remove(pageIndex);
+        this.sketchbook$pendingItemSyncDeadlines.remove(pageIndex);
+        if (sketch == null) {
+            return;
+        }
+        this.sketchbook$sendItemSketchSync(pageIndex, sketch);
+    }
+
+    @Unique
+    private void sketchbook$sendItemSketchSync(int pageIndex, BookItemSketch sketch) {
+        PacketDistributor.sendToServer(new BookItemSketchPayload(this.sketchbook$getTarget(), pageIndex, sketch));
+    }
+
+    @Unique
     private int sketchbook$getCurrentColorMask(int pageIndex) {
+        Optional<BookEntitySketch> entitySketch = this.sketchbook$getDisplayedEntitySketch(pageIndex);
+        if (entitySketch.isPresent()) {
+            return entitySketch.get().colorMask();
+        }
+        Optional<BookItemSketch> itemSketch = this.sketchbook$getDisplayedItemSketch(pageIndex);
+        if (itemSketch.isPresent()) {
+            return itemSketch.get().colorMask();
+        }
         return BookSketches.getSketchReference(this.bookStack, pageIndex).map(ClientSketchCache::getColorMask).orElse(SketchColorMask.NONE);
     }
 
@@ -724,6 +965,29 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
 
     @Unique
     private void sketchbook$setColorMask(int pageIndex, int colorMask) {
+        int normalizedColorMask = SketchColorMask.normalize(colorMask);
+        BookEntitySketch entitySketch = this.sketchbook$getDisplayedEntitySketch(pageIndex).orElse(null);
+        if (entitySketch != null) {
+            BookEntitySketch updated = entitySketch.withColorMask(normalizedColorMask);
+            this.sketchbook$setEntitySketchPreview(pageIndex, updated);
+            this.sketchbook$pendingEntitySyncs.remove(pageIndex);
+            this.sketchbook$pendingEntitySyncDeadlines.remove(pageIndex);
+            this.sketchbook$sendEntitySketchSync(pageIndex, updated);
+            this.sketchbook$contextMenu.refresh(this.sketchbook$buildContextEntries(pageIndex), this.font, this.width, this.height);
+            return;
+        }
+
+        BookItemSketch itemSketch = this.sketchbook$getDisplayedItemSketch(pageIndex).orElse(null);
+        if (itemSketch != null) {
+            BookItemSketch updated = itemSketch.withColorMask(normalizedColorMask);
+            this.sketchbook$setItemSketchPreview(pageIndex, updated);
+            this.sketchbook$pendingItemSyncs.remove(pageIndex);
+            this.sketchbook$pendingItemSyncDeadlines.remove(pageIndex);
+            this.sketchbook$sendItemSketchSync(pageIndex, updated);
+            this.sketchbook$contextMenu.refresh(this.sketchbook$buildContextEntries(pageIndex), this.font, this.width, this.height);
+            return;
+        }
+
         UUID referenceId = BookSketches.getSketchReference(this.bookStack, pageIndex).orElse(null);
         if (referenceId == null) {
             return;
@@ -734,7 +998,6 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             return;
         }
 
-        int normalizedColorMask = SketchColorMask.normalize(colorMask);
         this.sketchbook$pendingColorPageIndex = pageIndex;
         this.sketchbook$pendingColorReferenceId = referenceId;
         this.sketchbook$pendingColorMask = normalizedColorMask;

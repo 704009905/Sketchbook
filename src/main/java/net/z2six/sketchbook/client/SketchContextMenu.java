@@ -128,7 +128,7 @@ public final class SketchContextMenu {
         }
 
         int nextOffset = this.submenuScrollOffset + (deltaY < 0.0D ? 1 : -1);
-        int clampedOffset = clampSubmenuScroll(submenu.entries(), nextOffset);
+        int clampedOffset = clampSubmenuScroll(submenu.entries(), nextOffset, submenu.visibleRowCount());
         if (clampedOffset != this.submenuScrollOffset) {
             this.submenuScrollOffset = clampedOffset;
         }
@@ -273,8 +273,9 @@ public final class SketchContextMenu {
         }
 
         List<Entry> children = root.children();
-        int visibleRowCount = Math.min(children.size(), root.maxSubmenuRows());
-        int scrollOffset = clampSubmenuScroll(children, this.submenuScrollOffset, root.maxSubmenuRows());
+        int availableRows = Math.max(1, (this.screenHeight - 8) / ROW_HEIGHT);
+        int visibleRowCount = Math.min(children.size(), Math.min(root.maxSubmenuRows(), availableRows));
+        int scrollOffset = clampSubmenuScroll(children, this.submenuScrollOffset, visibleRowCount);
         int submenuWidth = menuWidth(children, font, children.size() > visibleRowCount);
         int preferredRightLeft = this.left + this.width + 2;
         int preferredLeftLeft = this.left - submenuWidth - 2;
@@ -288,7 +289,7 @@ public final class SketchContextMenu {
         }
 
         int submenuTop = Mth.clamp(this.top + rootIndex * ROW_HEIGHT, 4, this.screenHeight - visibleRowCount * ROW_HEIGHT - 4);
-        return new Submenu(children, submenuLeft, submenuTop, submenuWidth, scrollOffset, visibleRowCount);
+        return new Submenu(children, submenuLeft, submenuTop, submenuWidth, scrollOffset, visibleRowCount, root.maxSubmenuRows());
     }
 
     private static int menuWidth(List<Entry> entries, Font font, boolean hasScrollbar) {
@@ -341,7 +342,7 @@ public final class SketchContextMenu {
         }
     }
 
-    private record Submenu(List<Entry> entries, int left, int top, int width, int scrollOffset, int visibleRowCount) {
+    private record Submenu(List<Entry> entries, int left, int top, int width, int scrollOffset, int visibleRowCount, int maxRows) {
         private boolean contains(double mouseX, double mouseY) {
             return mouseX >= this.left && mouseX < this.left + this.width && mouseY >= this.top && mouseY < this.top + this.visibleRowCount * ROW_HEIGHT;
         }
