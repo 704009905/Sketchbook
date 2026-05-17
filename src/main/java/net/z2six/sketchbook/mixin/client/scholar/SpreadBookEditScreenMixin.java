@@ -747,10 +747,10 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         int selectionStart = this.sketchbook$selectionStart(editor);
         int selectionEnd = this.sketchbook$selectionEnd(editor);
         if (selectionStart != selectionEnd) {
-            start = selectionStart;
-            end = selectionEnd;
+            start = this.sketchbook$clampTextIndex(selectionStart, pageText);
+            end = this.sketchbook$clampTextIndex(selectionEnd, pageText);
         } else {
-            int cursor = this.sketchbook$invokeEditorInt(editor, "getCursorPos");
+            int cursor = this.sketchbook$clampTextIndex(this.sketchbook$invokeEditorInt(editor, "getCursorPos"), pageText);
             if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
                 start = Math.max(0, cursor - 1);
                 end = cursor;
@@ -768,13 +768,15 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         boolean touchedLink = false;
         BookItemLinks itemLinks = this.bookStack.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY);
         for (BookItemLink link : itemLinks.get(pageIndex)) {
-            if (link.start() < expandedEnd && link.end() > expandedStart) {
-                expandedStart = Math.min(expandedStart, link.start());
-                expandedEnd = Math.max(expandedEnd, link.end());
+            int linkStart = this.sketchbook$clampTextIndex(link.start(), pageText);
+            int linkEnd = this.sketchbook$clampTextIndex(link.end(), pageText);
+            if (linkStart < expandedEnd && linkEnd > expandedStart) {
+                expandedStart = Math.min(expandedStart, linkStart);
+                expandedEnd = Math.max(expandedEnd, linkEnd);
                 touchedLink = true;
             }
         }
-        if (!touchedLink) {
+        if (!touchedLink || expandedStart >= expandedEnd) {
             return false;
         }
 
@@ -796,6 +798,11 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         }
         PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, editedText, updatedLinks.get(pageIndex)));
         return true;
+    }
+
+    @Unique
+    private int sketchbook$clampTextIndex(int index, String text) {
+        return Math.max(0, Math.min(text.length(), index));
     }
 
     @Unique

@@ -588,10 +588,10 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
         int start;
         int end;
         if (this.pageEdit.isSelecting()) {
-            start = this.sketchbook$selectionStart();
-            end = this.sketchbook$selectionEnd();
+            start = this.sketchbook$clampTextIndex(this.sketchbook$selectionStart(), pageText);
+            end = this.sketchbook$clampTextIndex(this.sketchbook$selectionEnd(), pageText);
         } else {
-            int cursor = this.pageEdit.getCursorPos();
+            int cursor = this.sketchbook$clampTextIndex(this.pageEdit.getCursorPos(), pageText);
             if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
                 start = Math.max(0, cursor - 1);
                 end = cursor;
@@ -609,13 +609,15 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
         boolean touchedLink = false;
         BookItemLinks itemLinks = this.book.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY);
         for (BookItemLink link : itemLinks.get(pageIndex)) {
-            if (link.start() < expandedEnd && link.end() > expandedStart) {
-                expandedStart = Math.min(expandedStart, link.start());
-                expandedEnd = Math.max(expandedEnd, link.end());
+            int linkStart = this.sketchbook$clampTextIndex(link.start(), pageText);
+            int linkEnd = this.sketchbook$clampTextIndex(link.end(), pageText);
+            if (linkStart < expandedEnd && linkEnd > expandedStart) {
+                expandedStart = Math.min(expandedStart, linkStart);
+                expandedEnd = Math.max(expandedEnd, linkEnd);
                 touchedLink = true;
             }
         }
-        if (!touchedLink) {
+        if (!touchedLink || expandedStart >= expandedEnd) {
             return false;
         }
 
@@ -633,6 +635,11 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
         }
         PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, editedText, updatedLinks.get(pageIndex)));
         return true;
+    }
+
+    @Unique
+    private int sketchbook$clampTextIndex(int index, String text) {
+        return Math.max(0, Math.min(text.length(), index));
     }
 
     @Unique
