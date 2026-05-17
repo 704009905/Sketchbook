@@ -2,6 +2,7 @@ package net.z2six.sketchbook.mixin.client.scholar;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -14,6 +15,8 @@ import net.z2six.sketchbook.book.BookSketchTarget;
 import net.z2six.sketchbook.book.BookSketches;
 import net.z2six.sketchbook.book.EntityDetail;
 import net.z2six.sketchbook.book.EntityStudy;
+import net.z2six.sketchbook.book.ItemDetail;
+import net.z2six.sketchbook.book.ItemDetailData;
 import net.z2six.sketchbook.book.PageSketch;
 import net.z2six.sketchbook.book.SceneMemorySummary;
 import net.z2six.sketchbook.book.SceneMemoryTitles;
@@ -594,6 +597,7 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         if (this.sketchbook$hasSketch(pageIndex)) {
             boolean sourceAvailable = this.sketchbook$hasColorSource(pageIndex);
             Optional<BookEntitySketch> entitySketch = this.sketchbook$getDisplayedEntitySketch(pageIndex);
+            Optional<BookItemSketch> itemSketch = this.sketchbook$getDisplayedItemSketch(pageIndex);
             List<SketchContextMenu.Entry> entries = new ArrayList<>();
             entries.add(
                 SketchContextMenu.Entry.action(Component.translatable("button.sketchbook.delete"), true, () -> {
@@ -613,6 +617,11 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
                 Component.translatable("menu.sketchbook.details"),
                 hasPencil && !ClientEntityScanCache.getDetails(sketch.study()).isEmpty(),
                 this.sketchbook$buildDetailEntries(pageIndex, sketch, hasPencil)
+            )));
+            itemSketch.ifPresent(sketch -> entries.add(SketchContextMenu.Entry.submenu(
+                Component.translatable("menu.sketchbook.details"),
+                hasPencil && !this.sketchbook$getItemDetails(sketch).isEmpty(),
+                this.sketchbook$buildItemDetailEntries(pageIndex, sketch, hasPencil)
             )));
             entries.add(SketchContextMenu.Entry.action(Component.translatable("button.sketchbook.add_date"), false, () -> { }));
             return entries;
@@ -781,6 +790,45 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         BookEntitySketch updated = sketch.withDetailMask(updatedMask);
         this.sketchbook$setEntitySketchPreview(pageIndex, updated);
         this.sketchbook$sendEntitySketchSync(pageIndex, updated);
+        this.sketchbook$contextMenu.refresh(this.sketchbook$buildContextEntries(pageIndex), this.font, this.width, this.height);
+    }
+
+    @Unique
+    private List<SketchContextMenu.Entry> sketchbook$buildItemDetailEntries(int pageIndex, BookItemSketch sketch, boolean enabled) {
+        Map<ItemDetail, String> knownDetails = this.sketchbook$getItemDetails(sketch);
+        List<SketchContextMenu.Entry> entries = new ArrayList<>();
+        for (ItemDetail detail : ItemDetail.values()) {
+            if (!knownDetails.containsKey(detail)) {
+                continue;
+            }
+            boolean selected = (sketch.detailMask() & detail.bit()) != 0;
+            entries.add(SketchContextMenu.Entry.stickyAction(
+                this.sketchbook$checkedLabel(selected, Component.translatable(detail.translationKey())),
+                enabled,
+                () -> this.sketchbook$toggleItemDetail(pageIndex, detail)
+            ));
+        }
+        return entries;
+    }
+
+    @Unique
+    private Map<ItemDetail, String> sketchbook$getItemDetails(BookItemSketch sketch) {
+        var item = BuiltInRegistries.ITEM.getOptional(sketch.itemId()).orElse(Items.AIR);
+        return item == Items.AIR ? Map.of() : ItemDetailData.valuesFor(new ItemStack(item));
+    }
+
+    @Unique
+    private void sketchbook$toggleItemDetail(int pageIndex, ItemDetail detail) {
+        BookItemSketch sketch = this.sketchbook$getDisplayedItemSketch(pageIndex).orElse(null);
+        if (sketch == null) {
+            return;
+        }
+
+        boolean selected = (sketch.detailMask() & detail.bit()) != 0;
+        int updatedMask = selected ? sketch.detailMask() & ~detail.bit() : sketch.detailMask() | detail.bit();
+        BookItemSketch updated = sketch.withDetailMask(updatedMask);
+        this.sketchbook$setItemSketchPreview(pageIndex, updated);
+        this.sketchbook$sendItemSketchSync(pageIndex, updated);
         this.sketchbook$contextMenu.refresh(this.sketchbook$buildContextEntries(pageIndex), this.font, this.width, this.height);
     }
 

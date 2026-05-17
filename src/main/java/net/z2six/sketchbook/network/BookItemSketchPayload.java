@@ -72,6 +72,11 @@ public record BookItemSketchPayload(BookSketchTarget target, int pageIndex, Book
                 fail(player, payload, "message.sketchbook.sketch_failed_no_pencil", "Sketchbook rejected item color update for player {} page {} target {} because no required pencil was available.");
                 return;
             }
+            boolean detailsChanged = existingItemSketch.map(existing -> existing.detailMask() != requestedSketch.detailMask()).orElse(false);
+            if (detailsChanged && !SketchbookItems.hasPencil(player)) {
+                fail(player, payload, "message.sketchbook.sketch_failed_no_pencil", "Sketchbook rejected item detail update for player {} page {} target {} because no required pencil was available.");
+                return;
+            }
             BookItemSketch appliedSketch = requestedSketch;
             if (colorChanged) {
                 appliedSketch = requestedSketch.withColorMask(requestedSketch.colorMask() & SketchbookItems.getAvailableColoredPencilMask(player));

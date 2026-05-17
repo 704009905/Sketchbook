@@ -14,11 +14,14 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.z2six.sketchbook.book.BookItemSketch;
+import net.z2six.sketchbook.book.ItemDetail;
+import net.z2six.sketchbook.book.ItemDetailData;
 import net.z2six.sketchbook.book.PageSketch;
 import org.joml.AxisAngle4f;
 import org.joml.Quaternionf;
@@ -55,10 +58,79 @@ public final class ItemSketchRenderer {
         graphics.enableScissor(pageLeft, pageTop, pageLeft + PAGE_WIDTH, pageTop + PAGE_HEIGHT);
         try {
             graphics.blit(texture.location(), left, top, CAPTURE_SIZE, CAPTURE_SIZE, 0.0F, 0.0F, CAPTURE_SIZE, CAPTURE_SIZE, CAPTURE_SIZE, CAPTURE_SIZE);
+            renderDetails(graphics, Minecraft.getInstance(), pageLeft, pageTop, sketch);
         } finally {
             graphics.disableScissor();
             graphics.pose().popPose();
         }
+    }
+
+    private static void renderDetails(GuiGraphics graphics, Minecraft minecraft, int pageLeft, int pageTop, BookItemSketch sketch) {
+        if (sketch.detailMask() == 0) {
+            return;
+        }
+
+        Item item = BuiltInRegistries.ITEM.getOptional(sketch.itemId()).orElse(Items.AIR);
+        if (item == Items.AIR) {
+            return;
+        }
+        ItemStack stack = new ItemStack(item);
+        Map<ItemDetail, String> details = ItemDetailData.valuesFor(stack);
+        if (details.isEmpty()) {
+            return;
+        }
+
+        int line = 0;
+        for (ItemDetail detail : ItemDetail.values()) {
+            if ((sketch.detailMask() & detail.bit()) == 0) {
+                continue;
+            }
+            String value = details.get(detail);
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            int y = pageTop + 5 + line * 9;
+            if (detail == ItemDetail.NAME) {
+                line += renderWrappedName(graphics, minecraft, value, pageLeft + 5, y);
+                continue;
+            } else {
+                renderDetailIcon(graphics, detail, pageLeft + 5, y - 1);
+                graphics.drawString(minecraft.font, value, pageLeft + 16, y, 0x4A4034, false);
+            }
+            line++;
+        }
+    }
+
+    private static int renderWrappedName(GuiGraphics graphics, Minecraft minecraft, String value, int x, int y) {
+        int lines = 0;
+        for (FormattedCharSequence line : minecraft.font.split(net.minecraft.network.chat.Component.literal(value), PAGE_WIDTH - 10)) {
+            graphics.drawString(minecraft.font, line, x, y + lines * 9, 0x4A4034, false);
+            lines++;
+        }
+        return Math.max(1, lines);
+    }
+
+    private static void renderDetailIcon(GuiGraphics graphics, ItemDetail detail, int x, int y) {
+        ItemStack icon = switch (detail) {
+            case ARMOR -> new ItemStack(Items.IRON_CHESTPLATE);
+            case ARMOR_TOUGHNESS -> new ItemStack(Items.NETHERITE_CHESTPLATE);
+            case KNOCKBACK_RESISTANCE -> new ItemStack(Items.SHIELD);
+            case DAMAGE -> new ItemStack(Items.IRON_SWORD);
+            case ATTACK_SPEED -> new ItemStack(Items.FEATHER);
+            case DURABILITY -> new ItemStack(Items.ANVIL);
+            case NUTRITION -> new ItemStack(Items.BREAD);
+            case SATURATION -> new ItemStack(Items.GOLDEN_CARROT);
+            case NAME -> ItemStack.EMPTY;
+        };
+        if (icon.isEmpty()) {
+            return;
+        }
+
+        graphics.pose().pushPose();
+        graphics.pose().translate(x, y, 0.0F);
+        graphics.pose().scale(0.5F, 0.5F, 1.0F);
+        graphics.renderItem(icon, 0, 0);
+        graphics.pose().popPose();
     }
 
     private static GraphiteTexture getTexture(Minecraft minecraft, BookItemSketch sketch) {

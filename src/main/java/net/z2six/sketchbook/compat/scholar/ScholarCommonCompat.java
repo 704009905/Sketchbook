@@ -132,6 +132,9 @@ public final class ScholarCommonCompat {
         if (colorChanged && !SketchbookItems.hasPencil(serverPlayer)) {
             return false;
         }
+        if (existingItemSketch.map(existing -> existing.detailMask() != requestedSketch.detailMask()).orElse(false) && !SketchbookItems.hasPencil(serverPlayer)) {
+            return false;
+        }
         BookItemSketch appliedSketch = requestedSketch;
         if (colorChanged) {
             appliedSketch = requestedSketch.withColorMask(requestedSketch.colorMask() & SketchbookItems.getAvailableColoredPencilMask(serverPlayer));

@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -29,6 +30,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 public final class EntitySketchRenderer {
+    private static final ResourceLocation HEART_FULL_SPRITE = ResourceLocation.withDefaultNamespace("hud/heart/full");
     private static final Map<EntityStudy, LivingEntity> ENTITY_CACHE = new HashMap<>();
     private static final Map<GraphiteKey, GraphiteTexture> TEXTURE_CACHE = new HashMap<>();
     private static final int PAGE_WIDTH = 114;
@@ -97,7 +99,8 @@ public final class EntitySketchRenderer {
             }
             int y = pageTop + 5 + line * 9;
             if (detail == EntityDetail.NAME) {
-                graphics.drawString(minecraft.font, value, pageLeft + 5, y, 0x4A4034, false);
+                line += renderWrappedName(graphics, minecraft, value, pageLeft + 5, y);
+                continue;
             } else {
                 renderDetailIcon(graphics, detail, pageLeft + 5, y - 1);
                 graphics.drawString(minecraft.font, value, pageLeft + 16, y, 0x4A4034, false);
@@ -106,13 +109,27 @@ public final class EntitySketchRenderer {
         }
     }
 
+    private static int renderWrappedName(GuiGraphics graphics, Minecraft minecraft, String value, int x, int y) {
+        int lines = 0;
+        for (FormattedCharSequence line : minecraft.font.split(net.minecraft.network.chat.Component.literal(value), PAGE_WIDTH - 10)) {
+            graphics.drawString(minecraft.font, line, x, y + lines * 9, 0x4A4034, false);
+            lines++;
+        }
+        return Math.max(1, lines);
+    }
+
     private static void renderDetailIcon(GuiGraphics graphics, EntityDetail detail, int x, int y) {
+        if (detail == EntityDetail.HEALTH) {
+            graphics.blitSprite(HEART_FULL_SPRITE, x, y, 9, 9);
+            return;
+        }
+
         ItemStack icon = switch (detail) {
-            case HEALTH -> new ItemStack(Items.APPLE);
             case ARMOR -> new ItemStack(Items.IRON_CHESTPLATE);
             case MOVEMENT_SPEED -> new ItemStack(Items.FEATHER);
             case ARMOR_TOUGHNESS -> new ItemStack(Items.NETHERITE_CHESTPLATE);
             case DAMAGE -> new ItemStack(Items.IRON_SWORD);
+            case HEALTH -> ItemStack.EMPTY;
             case NAME -> ItemStack.EMPTY;
         };
         if (icon.isEmpty()) {
