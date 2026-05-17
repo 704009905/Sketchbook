@@ -17,6 +17,7 @@ public record BookItemSketch(ResourceLocation itemId, float x, float y, float sc
     ).apply(instance, BookItemSketch::new));
 
     public BookItemSketch {
+        scale = normalizeScale(scale);
         colorMask = SketchColorMask.normalize(colorMask);
         detailMask = ItemDetail.normalizeMask(detailMask);
     }
@@ -35,5 +36,9 @@ public record BookItemSketch(ResourceLocation itemId, float x, float y, float sc
 
     public BookItemSketch withDetailMask(int detailMask) {
         return new BookItemSketch(this.itemId, this.x, this.y, this.scale, this.yaw, this.roll, this.colorMask, detailMask);
+    }
+
+    private static float normalizeScale(float scale) {
+        return Float.isFinite(scale) ? Math.max(8.0F, scale) : 42.0F;
     }
 }

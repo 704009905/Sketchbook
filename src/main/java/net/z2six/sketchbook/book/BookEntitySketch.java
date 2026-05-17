@@ -15,6 +15,7 @@ public record BookEntitySketch(EntityStudy study, float x, float y, float scale,
     ).apply(instance, BookEntitySketch::new));
 
     public BookEntitySketch {
+        scale = normalizeScale(scale);
         detailMask = EntityDetail.normalizeMask(detailMask);
         colorMask = SketchColorMask.normalize(colorMask);
     }
@@ -33,5 +34,9 @@ public record BookEntitySketch(EntityStudy study, float x, float y, float scale,
 
     public BookEntitySketch withColorMask(int colorMask) {
         return new BookEntitySketch(this.study, this.x, this.y, this.scale, this.rotation, this.detailMask, colorMask);
+    }
+
+    private static float normalizeScale(float scale) {
+        return Float.isFinite(scale) ? Math.max(8.0F, scale) : 30.0F;
     }
 }

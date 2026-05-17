@@ -430,7 +430,7 @@ public final class EntitySketchRenderer {
 
     private record GraphiteKey(EntityStudy study, int scale, int rotation, int colorMask) {
         private static GraphiteKey from(BookEntitySketch sketch) {
-            int quantizedScale = Math.max(8, Math.min(160, Math.round(sketch.scale())));
+            int quantizedScale = Math.max(8, Math.round(sketch.scale()));
             int quantizedRotation = Math.floorMod(Math.round(sketch.rotation()), 360);
             return new GraphiteKey(sketch.study(), quantizedScale, quantizedRotation, sketch.colorMask());
         }

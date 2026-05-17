@@ -959,7 +959,7 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
             return false;
         }
 
-        float nextScale = Math.max(8.0F, Math.min(160.0F, sketch.scale() + (float)scrollY * 3.0F));
+        float nextScale = Math.max(8.0F, sketch.scale() + (float)scrollY * 3.0F);
         if (nextScale == sketch.scale()) {
             return true;
         }
@@ -977,7 +977,7 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
             return false;
         }
 
-        float nextScale = Math.max(8.0F, Math.min(320.0F, sketch.scale() + (float)scrollY * 3.0F));
+        float nextScale = Math.max(8.0F, sketch.scale() + (float)scrollY * 3.0F);
         if (nextScale == sketch.scale()) {
             return true;
         }

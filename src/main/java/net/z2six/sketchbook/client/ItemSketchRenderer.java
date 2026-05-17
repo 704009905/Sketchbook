@@ -317,7 +317,7 @@ public final class ItemSketchRenderer {
 
     private record GraphiteKey(ResourceLocation itemId, int scale, int yaw, int roll, int colorMask) {
         private static GraphiteKey from(BookItemSketch sketch) {
-            return new GraphiteKey(sketch.itemId(), Math.max(8, Math.min(320, Math.round(sketch.scale()))), Math.floorMod(Math.round(sketch.yaw()), 360), Math.floorMod(Math.round(sketch.roll()), 360), sketch.colorMask());
+            return new GraphiteKey(sketch.itemId(), Math.max(8, Math.round(sketch.scale())), Math.floorMod(Math.round(sketch.yaw()), 360), Math.floorMod(Math.round(sketch.roll()), 360), sketch.colorMask());
         }
     }
 
