@@ -738,6 +738,9 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
     @Unique
     private List<SketchContextMenu.Entry> sketchbook$buildEntityEntries(int pageIndex, List<EntityStudy> entities, boolean enabled) {
         return entities.stream()
+            .sorted(java.util.Comparator.comparing(EntityStudy::displayLabel, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(study -> study.entityTypeId().toString())
+                .thenComparing(EntityStudy::variantData))
             .map(study -> SketchContextMenu.Entry.iconAction(Component.literal(study.displayLabel()), ClientEntityScanCache.hasDetailedStudy(study) ? new ItemStack(Items.NETHER_STAR) : ItemStack.EMPTY, enabled, () -> {
                 BookEntitySketch sketch = BookEntitySketch.create(study);
                 this.sketchbook$setEntitySketch(pageIndex, sketch);
