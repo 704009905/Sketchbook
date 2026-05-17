@@ -789,6 +789,9 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         }
         this.pages.set(pageIndex, editedText);
         this.bookModified = true;
+        this.setTextBoxes();
+        this.updateButtonVisibility();
+        this.sketchbook$updateSketchUi();
 
         BookItemLinks updatedLinks = itemLinks.withEdit(pageIndex, expandedStart, expandedEnd, 0);
         if (updatedLinks.isEmpty()) {
