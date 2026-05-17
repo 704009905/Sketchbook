@@ -1,15 +1,20 @@
 package net.z2six.sketchbook.mixin.client;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.font.TextFieldHelper;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.BookEditScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.z2six.sketchbook.Sketchbook;
 import net.z2six.sketchbook.SketchbookItems;
+import net.z2six.sketchbook.book.BookItemLinks;
 import net.z2six.sketchbook.book.BookEntitySketch;
 import net.z2six.sketchbook.book.BookItemSketch;
 import net.z2six.sketchbook.book.BookSketchTarget;
@@ -39,12 +44,14 @@ import net.z2six.sketchbook.client.SketchPageRenderer;
 import net.z2six.sketchbook.image.SketchImageProcessor;
 import net.z2six.sketchbook.network.BookSketchColorPayload;
 import net.z2six.sketchbook.network.BookEntitySketchPayload;
+import net.z2six.sketchbook.network.BookItemLinkPayload;
 import net.z2six.sketchbook.network.BookItemSketchPayload;
 import net.z2six.sketchbook.network.BookSketchPayload;
 import net.z2six.sketchbook.network.RipSketchPagePayload;
 import net.z2six.sketchbook.network.UseSceneMemoryPayload;
 import net.z2six.sketchbook.item.PencilColor;
 import org.lwjgl.glfw.GLFW;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -68,6 +75,7 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
     @Shadow private boolean isSigning;
     @Shadow private int currentPage;
     @Shadow private List<String> pages;
+    @Shadow @Final private TextFieldHelper pageEdit;
 
     @Shadow protected abstract void clearDisplayCache();
 
@@ -124,7 +132,7 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
                 ItemSketchRenderer.render(graphics, this.sketchbook$pageLeft(), this.sketchbook$pageTop(), 114, 128, itemSketch);
             });
         }
-        ItemLinkRenderer.renderLinks(graphics, this.font, this.pages, this.currentPage, this.sketchbook$pageLeft(), this.sketchbook$pageTop(), mouseX, mouseY);
+        ItemLinkRenderer.renderLinks(graphics, this.font, this.book, this.pages, this.currentPage, this.sketchbook$pageLeft(), this.sketchbook$pageTop(), mouseX, mouseY);
         this.sketchbook$contextMenu.render(graphics, this.font, mouseX, mouseY, this.width);
         this.sketchbook$itemSearch.render(graphics, this.font, mouseX, mouseY);
         this.sketchbook$updateEntityDrag(mouseX, mouseY);
@@ -171,7 +179,7 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
         }
 
         boolean hasSketch = this.sketchbook$hasSketch(this.currentPage);
-        if (!hasSketch && !SketchbookItems.hasPencil(this.minecraft.player) && this.sketchbook$getCurrentDate().isEmpty() && ClientEntityScanCache.getIdentified().isEmpty()) {
+        if (!hasSketch && !this.sketchbook$hasSelection() && !SketchbookItems.hasPencil(this.minecraft.player) && this.sketchbook$getCurrentDate().isEmpty() && ClientEntityScanCache.getIdentified().isEmpty()) {
             return;
         }
 
@@ -305,14 +313,6 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
         }
         if (!this.isSigning && this.sketchbook$hasSketch(this.currentPage)) {
             cir.setReturnValue(false);
-        }
-    }
-
-    @Inject(method = "charTyped", at = @At("TAIL"))
-    private void sketchbook$breakItemLinkOnSpace(char codePoint, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (codePoint == ' ' && !this.isSigning && ItemLinkRenderer.breakCompletedLinkOnSpace(this.pages, this.currentPage)) {
-            this.isModified = true;
-            this.clearDisplayCache();
         }
     }
 
@@ -510,8 +510,10 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
         List<SceneMemorySummary> memories = ClientSceneMemoryCache.getMemories();
         List<EntityStudy> entities = ClientEntityScanCache.getIdentified();
         Optional<String> insertableDate = currentDate.filter(date -> this.sketchbook$canInsertDate(pageIndex, date));
+        boolean hasSelection = !this.isSigning && pageIndex == this.currentPage && this.sketchbook$hasSelection();
         return List.of(
             SketchContextMenu.Entry.action(Component.translatable("button.sketchbook.add_date"), insertableDate.isPresent(), () -> insertableDate.ifPresent(date -> this.sketchbook$insertDate(pageIndex, date))),
+            SketchContextMenu.Entry.action(Component.translatable("menu.sketchbook.item_link"), hasSelection, () -> this.sketchbook$openItemLinkSearch(pageIndex)),
             SketchContextMenu.Entry.action(label, canCapture, () -> SketchCaptureController.requestCapture(this, pageIndex)),
             SketchContextMenu.Entry.action(Component.translatable("menu.sketchbook.items"), canCapture, () -> this.sketchbook$openItemSearch(pageIndex)),
             SketchContextMenu.Entry.tallSubmenu(Component.translatable("menu.sketchbook.entities"), hasPencil && !entities.isEmpty() && this.sketchbook$canCaptureSketch(pageIndex), this.sketchbook$buildEntityEntries(pageIndex, entities, hasPencil)),
@@ -527,6 +529,45 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
             this.sketchbook$setItemSketch(pageIndex, sketch);
             this.sketchbook$sendItemSketchSync(pageIndex, sketch);
         });
+    }
+
+    @Unique
+    private void sketchbook$openItemLinkSearch(int pageIndex) {
+        int start = this.sketchbook$selectionStart();
+        int end = this.sketchbook$selectionEnd();
+        if (start == end) {
+            return;
+        }
+        this.sketchbook$contextMenu.clear();
+        this.sketchbook$itemSearch.open(pageIndex, this.sketchbook$menuMouseX, this.sketchbook$menuMouseY, this.width, this.height, false, itemId -> this.sketchbook$applyItemLink(pageIndex, start, end, itemId));
+    }
+
+    @Unique
+    private boolean sketchbook$hasSelection() {
+        return this.pageEdit.isSelecting() && this.sketchbook$selectionStart() != this.sketchbook$selectionEnd();
+    }
+
+    @Unique
+    private int sketchbook$selectionStart() {
+        return Math.min(this.pageEdit.getCursorPos(), this.pageEdit.getSelectionPos());
+    }
+
+    @Unique
+    private int sketchbook$selectionEnd() {
+        return Math.max(this.pageEdit.getCursorPos(), this.pageEdit.getSelectionPos());
+    }
+
+    @Unique
+    private void sketchbook$applyItemLink(int pageIndex, int start, int end, ResourceLocation itemId) {
+        Item item = BuiltInRegistries.ITEM.getOptional(itemId).orElse(Items.AIR);
+        if (item == Items.AIR || pageIndex != this.currentPage) {
+            return;
+        }
+
+        String currentText = pageIndex >= 0 && pageIndex < this.pages.size() ? this.pages.get(pageIndex) : "";
+        BookItemLinks itemLinks = this.book.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY).withReplacement(pageIndex, start, end, end - start, itemId);
+        this.book.set(Sketchbook.BOOK_ITEM_LINKS, itemLinks);
+        PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, currentText, itemLinks.get(pageIndex)));
     }
 
     @Unique

@@ -21,11 +21,13 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.z2six.sketchbook.book.SketchBookData;
+import net.z2six.sketchbook.book.BookItemLinks;
 import net.z2six.sketchbook.command.SketchbookCommands;
 import net.z2six.sketchbook.compat.curios.CuriosCompat;
 import net.z2six.sketchbook.network.BookSketchPayload;
 import net.z2six.sketchbook.network.BookEntitySketchPayload;
 import net.z2six.sketchbook.network.BookItemSketchPayload;
+import net.z2six.sketchbook.network.BookItemLinkPayload;
 import net.z2six.sketchbook.network.BookSketchColorPayload;
 import net.z2six.sketchbook.network.BookSketchRequestPayload;
 import net.z2six.sketchbook.network.BookSketchSyncPayload;
@@ -55,6 +57,10 @@ public class Sketchbook {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<SketchBookData>> BOOK_SKETCHES = DATA_COMPONENTS.registerComponentType(
         "book_sketches",
         builder -> builder.persistent(SketchBookData.CODEC).networkSynchronized(ByteBufCodecs.fromCodecWithRegistries(SketchBookData.NETWORK_CODEC)).cacheEncoding()
+    );
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BookItemLinks>> BOOK_ITEM_LINKS = DATA_COMPONENTS.registerComponentType(
+        "book_item_links",
+        builder -> builder.persistent(BookItemLinks.CODEC).networkSynchronized(ByteBufCodecs.fromCodecWithRegistries(BookItemLinks.CODEC)).cacheEncoding()
     );
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> PENCIL_CASE_CONTENTS = DATA_COMPONENTS.registerComponentType(
         "pencil_case_contents",
@@ -93,6 +99,7 @@ public class Sketchbook {
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToServer(BookEntitySketchPayload.TYPE, BookEntitySketchPayload.STREAM_CODEC, BookEntitySketchPayload::handle);
         registrar.playToServer(BookItemSketchPayload.TYPE, BookItemSketchPayload.STREAM_CODEC, BookItemSketchPayload::handle);
+        registrar.playToServer(BookItemLinkPayload.TYPE, BookItemLinkPayload.STREAM_CODEC, BookItemLinkPayload::handle);
         registrar.playToServer(BookSketchPayload.TYPE, BookSketchPayload.STREAM_CODEC, BookSketchPayload::handle);
         registrar.playToServer(BookSketchColorPayload.TYPE, BookSketchColorPayload.STREAM_CODEC, BookSketchColorPayload::handle);
         registrar.playToServer(BookSketchRequestPayload.TYPE, BookSketchRequestPayload.STREAM_CODEC, BookSketchRequestPayload::handle);

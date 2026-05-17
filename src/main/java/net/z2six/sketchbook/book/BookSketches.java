@@ -132,6 +132,12 @@ public final class BookSketches {
         return pages.get(pageIndex);
     }
 
+    public static void setPageText(ItemStack book, int pageIndex, String pageText) {
+        List<String> pages = getPages(book, pageIndex);
+        pages.set(pageIndex, pageText);
+        writePages(book, pages);
+    }
+
     private static void setPageMarker(List<String> pages, int pageIndex, boolean present) {
         if (pageIndex < 0 || pageIndex >= pages.size()) {
             return;

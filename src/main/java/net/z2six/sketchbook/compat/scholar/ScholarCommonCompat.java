@@ -17,6 +17,7 @@ import net.z2six.sketchbook.book.BookItemSketch;
 import net.z2six.sketchbook.book.CapturedSketch;
 import net.z2six.sketchbook.book.ServerBookSketches;
 import net.z2six.sketchbook.network.BookSketchSyncPayload;
+import net.z2six.sketchbook.network.BookItemLinkPayload;
 
 import java.lang.reflect.Method;
 import java.util.Optional;
@@ -148,6 +149,17 @@ public final class ScholarCommonCompat {
 
         BookSketches.applyItemSketch(book, pageIndex, appliedSketch);
         broadcastLecternUpdate(serverPlayer, target, BookSketchSyncPayload.item(target, pageIndex, appliedSketch));
+        return true;
+    }
+
+    public static boolean handleItemLinkUpdate(ServerPlayer serverPlayer, BookSketchTarget target, int pageIndex, String pageText, java.util.List<net.z2six.sketchbook.book.BookItemLink> links) {
+        ItemStack book = getLecternBook(serverPlayer, target);
+        if (!book.is(Items.WRITABLE_BOOK)) {
+            return false;
+        }
+
+        BookItemLinkPayload.apply(book, pageIndex, pageText, links);
+        serverPlayer.containerMenu.broadcastChanges();
         return true;
     }
 

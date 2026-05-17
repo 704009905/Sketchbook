@@ -36,9 +36,14 @@ public final class ItemSearchOverlay {
     private long searchDeadline;
     private boolean searchDirty;
     private boolean draggingScrollbar;
+    private boolean sketchableOnly = true;
     private Consumer<ResourceLocation> onSelect = itemId -> { };
 
     public void open(int pageIndex, int mouseX, int mouseY, int screenWidth, int screenHeight, Consumer<ResourceLocation> onSelect) {
+        this.open(pageIndex, mouseX, mouseY, screenWidth, screenHeight, true, onSelect);
+    }
+
+    public void open(int pageIndex, int mouseX, int mouseY, int screenWidth, int screenHeight, boolean sketchableOnly, Consumer<ResourceLocation> onSelect) {
         this.visible = true;
         this.pageIndex = pageIndex;
         this.query = "";
@@ -47,6 +52,7 @@ public final class ItemSearchOverlay {
         this.searchDeadline = 0L;
         this.searchDirty = false;
         this.draggingScrollbar = false;
+        this.sketchableOnly = sketchableOnly;
         this.onSelect = onSelect;
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
@@ -232,14 +238,14 @@ public final class ItemSearchOverlay {
             return;
         }
         this.results = BuiltInRegistries.ITEM.keySet().stream()
-            .filter(id -> matches(id, needle))
+            .filter(id -> this.matches(id, needle))
             .limit(100)
             .toList();
     }
 
-    private static boolean matches(ResourceLocation id, String needle) {
+    private boolean matches(ResourceLocation id, String needle) {
         Item item = BuiltInRegistries.ITEM.get(id);
-        return isSketchable(item) && (id.toString().contains(needle) || item.getDescription().getString().toLowerCase(Locale.ROOT).contains(needle));
+        return item != Items.AIR && (!this.sketchableOnly || isSketchable(item)) && (id.toString().contains(needle) || item.getDescription().getString().toLowerCase(Locale.ROOT).contains(needle));
     }
 
     private static boolean isSketchable(Item item) {

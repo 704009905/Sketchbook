@@ -50,6 +50,7 @@
   "menu.sketchbook.memories": "Memories",
   "menu.sketchbook.entities": "Entities",
   "menu.sketchbook.items": "Items",
+  "menu.sketchbook.item_link": "Link item",
   "menu.sketchbook.item_search": "Search items",
   "menu.sketchbook.item_search_empty": "Start typing",
   "menu.sketchbook.memory_title": "Day %1$s %2$02d:%3$02d",

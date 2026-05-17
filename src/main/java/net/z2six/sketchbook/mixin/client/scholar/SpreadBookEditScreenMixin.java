@@ -4,11 +4,15 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.z2six.sketchbook.Sketchbook;
 import net.z2six.sketchbook.SketchbookItems;
+import net.z2six.sketchbook.book.BookItemLinks;
 import net.z2six.sketchbook.book.BookEntitySketch;
 import net.z2six.sketchbook.book.BookItemSketch;
 import net.z2six.sketchbook.book.BookSketchTarget;
@@ -38,6 +42,7 @@ import net.z2six.sketchbook.client.SketchPageRenderer;
 import net.z2six.sketchbook.image.SketchImageProcessor;
 import net.z2six.sketchbook.network.BookSketchColorPayload;
 import net.z2six.sketchbook.network.BookEntitySketchPayload;
+import net.z2six.sketchbook.network.BookItemLinkPayload;
 import net.z2six.sketchbook.network.BookItemSketchPayload;
 import net.z2six.sketchbook.network.BookSketchPayload;
 import net.z2six.sketchbook.network.RipSketchPagePayload;
@@ -160,7 +165,7 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             return;
         }
 
-        if (!this.sketchbook$hasSketch(pageIndex) && !SketchbookItems.hasPencil(this.minecraft.player) && this.sketchbook$getCurrentDate().isEmpty() && ClientEntityScanCache.getIdentified().isEmpty()) {
+        if (!this.sketchbook$hasSketch(pageIndex) && !this.sketchbook$hasSelection(pageIndex) && !SketchbookItems.hasPencil(this.minecraft.player) && this.sketchbook$getCurrentDate().isEmpty() && ClientEntityScanCache.getIdentified().isEmpty()) {
             return;
         }
 
@@ -305,14 +310,6 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
     private void sketchbook$charTyped(char codePoint, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         if (this.sketchbook$itemSearch.isVisible() && this.sketchbook$itemSearch.charTyped(codePoint)) {
             cir.setReturnValue(true);
-        }
-    }
-
-    @Inject(method = "charTyped", at = @At("TAIL"), require = 0)
-    private void sketchbook$breakItemLinkOnSpace(char codePoint, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (codePoint == ' ' && (ItemLinkRenderer.breakCompletedLinkOnSpace(this.pages, this.sketchbook$getLeftPageIndex()) || ItemLinkRenderer.breakCompletedLinkOnSpace(this.pages, this.sketchbook$getRightPageIndex()))) {
-            this.bookModified = true;
-            this.setTextBoxes();
         }
     }
 
@@ -572,7 +569,7 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             this.sketchbook$getDisplayedEntitySketch(pageIndex).ifPresent(entitySketch -> EntitySketchRenderer.render(graphics, left, top, 114, 128, entitySketch));
             this.sketchbook$getDisplayedItemSketch(pageIndex).ifPresent(itemSketch -> ItemSketchRenderer.render(graphics, left, top, 114, 128, itemSketch));
         }
-        ItemLinkRenderer.renderLinks(graphics, this.font, this.pages, pageIndex, left, top, this.sketchbook$currentMouseX, this.sketchbook$currentMouseY);
+        ItemLinkRenderer.renderLinks(graphics, this.font, this.bookStack, this.pages, pageIndex, left, top, this.sketchbook$currentMouseX, this.sketchbook$currentMouseY);
     }
 
     @Unique
@@ -634,8 +631,10 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         List<SceneMemorySummary> memories = ClientSceneMemoryCache.getMemories();
         List<EntityStudy> entities = ClientEntityScanCache.getIdentified();
         Optional<String> insertableDate = currentDate.filter(date -> this.sketchbook$canInsertDate(pageIndex, date));
+        boolean hasSelection = this.sketchbook$hasSelection(pageIndex);
         return List.of(
             SketchContextMenu.Entry.action(Component.translatable("button.sketchbook.add_date"), insertableDate.isPresent(), () -> insertableDate.ifPresent(date -> this.sketchbook$insertDate(pageIndex, date))),
+            SketchContextMenu.Entry.action(Component.translatable("menu.sketchbook.item_link"), hasSelection, () -> this.sketchbook$openItemLinkSearch(pageIndex)),
             SketchContextMenu.Entry.action(label, canCapture, () -> SketchCaptureController.requestCapture(this, pageIndex)),
             SketchContextMenu.Entry.action(Component.translatable("menu.sketchbook.items"), canCapture, () -> this.sketchbook$openItemSearch(pageIndex)),
             SketchContextMenu.Entry.tallSubmenu(Component.translatable("menu.sketchbook.entities"), hasPencil && !entities.isEmpty() && this.sketchbook$canCaptureSketch(pageIndex), this.sketchbook$buildEntityEntries(pageIndex, entities, hasPencil)),
@@ -652,6 +651,77 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             this.sketchbook$sendItemSketchSync(pageIndex, sketch);
         });
         this.sketchbook$updateSketchUi();
+    }
+
+    @Unique
+    private void sketchbook$openItemLinkSearch(int pageIndex) {
+        Object editor = this.sketchbook$getEditorForPage(pageIndex);
+        int start = this.sketchbook$selectionStart(editor);
+        int end = this.sketchbook$selectionEnd(editor);
+        if (editor == null || start == end) {
+            return;
+        }
+        this.sketchbook$contextMenu.clear();
+        this.sketchbook$itemSearch.open(pageIndex, this.sketchbook$menuMouseX, this.sketchbook$menuMouseY, this.width, this.height, false, itemId -> this.sketchbook$applyItemLink(pageIndex, editor, start, end, itemId));
+        this.sketchbook$updateSketchUi();
+    }
+
+    @Unique
+    private boolean sketchbook$hasSelection(int pageIndex) {
+        Object editor = this.sketchbook$getEditorForPage(pageIndex);
+        return editor != null && this.sketchbook$selectionStart(editor) != this.sketchbook$selectionEnd(editor);
+    }
+
+    @Unique
+    private Object sketchbook$getEditorForPage(int pageIndex) {
+        Object textBox = pageIndex == this.sketchbook$getLeftPageIndex()
+            ? this.sketchbook$getScholarField("leftPageTextBox")
+            : pageIndex == this.sketchbook$getRightPageIndex() ? this.sketchbook$getScholarField("rightPageTextBox") : null;
+        if (textBox == null) {
+            return null;
+        }
+        try {
+            java.lang.reflect.Method method = textBox.getClass().getMethod("getEditor");
+            return method.invoke(textBox);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    @Unique
+    private int sketchbook$selectionStart(Object editor) {
+        return this.sketchbook$invokeEditorInt(editor, "getSelectionStart");
+    }
+
+    @Unique
+    private int sketchbook$selectionEnd(Object editor) {
+        return this.sketchbook$invokeEditorInt(editor, "getSelectionEnd");
+    }
+
+    @Unique
+    private int sketchbook$invokeEditorInt(Object editor, String methodName) {
+        if (editor == null) {
+            return 0;
+        }
+        try {
+            java.lang.reflect.Method method = editor.getClass().getMethod(methodName);
+            return ((Number)method.invoke(editor)).intValue();
+        } catch (ReflectiveOperationException ignored) {
+            return 0;
+        }
+    }
+
+    @Unique
+    private void sketchbook$applyItemLink(int pageIndex, Object editor, int start, int end, ResourceLocation itemId) {
+        Item item = BuiltInRegistries.ITEM.getOptional(itemId).orElse(Items.AIR);
+        if (item == Items.AIR || editor == null) {
+            return;
+        }
+
+        String currentText = pageIndex >= 0 && pageIndex < this.pages.size() ? this.pages.get(pageIndex) : "";
+        BookItemLinks itemLinks = this.bookStack.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY).withReplacement(pageIndex, start, end, end - start, itemId);
+        this.bookStack.set(Sketchbook.BOOK_ITEM_LINKS, itemLinks);
+        PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, currentText, itemLinks.get(pageIndex)));
     }
 
     @Unique
