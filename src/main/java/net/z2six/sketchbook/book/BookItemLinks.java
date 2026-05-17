@@ -58,6 +58,17 @@ public record BookItemLinks(Map<Integer, List<BookItemLink>> pages) {
     }
 
     public BookItemLinks withReplacement(int pageIndex, int start, int end, int insertedLength, ResourceLocation itemId) {
+        List<BookItemLink> updated = this.shiftAroundEdit(pageIndex, start, end, insertedLength);
+        updated.add(new BookItemLink(start, start + insertedLength, itemId));
+        updated.sort(java.util.Comparator.comparingInt(BookItemLink::start));
+        return this.withPage(pageIndex, updated);
+    }
+
+    public BookItemLinks withEdit(int pageIndex, int start, int end, int insertedLength) {
+        return this.withPage(pageIndex, this.shiftAroundEdit(pageIndex, start, end, insertedLength));
+    }
+
+    private List<BookItemLink> shiftAroundEdit(int pageIndex, int start, int end, int insertedLength) {
         int delta = insertedLength - (end - start);
         List<BookItemLink> updated = new ArrayList<>();
         for (BookItemLink link : this.get(pageIndex)) {
@@ -67,9 +78,8 @@ public record BookItemLinks(Map<Integer, List<BookItemLink>> pages) {
                 updated.add(new BookItemLink(link.start() + delta, link.end() + delta, link.itemId()));
             }
         }
-        updated.add(new BookItemLink(start, start + insertedLength, itemId));
         updated.sort(java.util.Comparator.comparingInt(BookItemLink::start));
-        return this.withPage(pageIndex, updated);
+        return updated;
     }
 
     private static DataResult<Integer> parsePageIndex(String value) {

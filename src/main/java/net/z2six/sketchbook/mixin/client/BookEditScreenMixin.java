@@ -14,6 +14,7 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.z2six.sketchbook.Sketchbook;
 import net.z2six.sketchbook.SketchbookItems;
+import net.z2six.sketchbook.book.BookItemLink;
 import net.z2six.sketchbook.book.BookItemLinks;
 import net.z2six.sketchbook.book.BookEntitySketch;
 import net.z2six.sketchbook.book.BookItemSketch;
@@ -332,6 +333,10 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
             cir.setReturnValue(true);
             return;
         }
+        if (!this.isSigning && this.sketchbook$handleItemLinkDeletion(this.currentPage, keyCode)) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (!this.isSigning && this.sketchbook$hasSketch(this.currentPage) && keyCode != 266 && keyCode != 267) {
             cir.setReturnValue(false);
         }
@@ -568,6 +573,66 @@ public abstract class BookEditScreenMixin extends Screen implements SketchBookSc
         BookItemLinks itemLinks = this.book.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY).withReplacement(pageIndex, start, end, end - start, itemId);
         this.book.set(Sketchbook.BOOK_ITEM_LINKS, itemLinks);
         PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, currentText, itemLinks.get(pageIndex)));
+    }
+
+    @Unique
+    private boolean sketchbook$handleItemLinkDeletion(int pageIndex, int keyCode) {
+        if (keyCode != GLFW.GLFW_KEY_BACKSPACE && keyCode != GLFW.GLFW_KEY_DELETE) {
+            return false;
+        }
+        if (pageIndex < 0 || pageIndex >= this.pages.size()) {
+            return false;
+        }
+
+        String pageText = this.pages.get(pageIndex);
+        int start;
+        int end;
+        if (this.pageEdit.isSelecting()) {
+            start = this.sketchbook$selectionStart();
+            end = this.sketchbook$selectionEnd();
+        } else {
+            int cursor = this.pageEdit.getCursorPos();
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                start = Math.max(0, cursor - 1);
+                end = cursor;
+            } else {
+                start = cursor;
+                end = Math.min(pageText.length(), cursor + 1);
+            }
+        }
+        if (start >= end) {
+            return false;
+        }
+
+        int expandedStart = start;
+        int expandedEnd = end;
+        boolean touchedLink = false;
+        BookItemLinks itemLinks = this.book.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY);
+        for (BookItemLink link : itemLinks.get(pageIndex)) {
+            if (link.start() < expandedEnd && link.end() > expandedStart) {
+                expandedStart = Math.min(expandedStart, link.start());
+                expandedEnd = Math.max(expandedEnd, link.end());
+                touchedLink = true;
+            }
+        }
+        if (!touchedLink) {
+            return false;
+        }
+
+        String editedText = pageText.substring(0, expandedStart) + pageText.substring(expandedEnd);
+        this.pageEdit.setSelectionRange(expandedStart, expandedEnd);
+        this.pageEdit.insertText("");
+        this.isModified = true;
+        this.clearDisplayCache();
+
+        BookItemLinks updatedLinks = itemLinks.withEdit(pageIndex, expandedStart, expandedEnd, 0);
+        if (updatedLinks.isEmpty()) {
+            this.book.remove(Sketchbook.BOOK_ITEM_LINKS);
+        } else {
+            this.book.set(Sketchbook.BOOK_ITEM_LINKS, updatedLinks);
+        }
+        PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, editedText, updatedLinks.get(pageIndex)));
+        return true;
     }
 
     @Unique

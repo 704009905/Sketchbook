@@ -12,6 +12,7 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.z2six.sketchbook.Sketchbook;
 import net.z2six.sketchbook.SketchbookItems;
+import net.z2six.sketchbook.book.BookItemLink;
 import net.z2six.sketchbook.book.BookItemLinks;
 import net.z2six.sketchbook.book.BookEntitySketch;
 import net.z2six.sketchbook.book.BookItemSketch;
@@ -320,6 +321,10 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
             return;
         }
         if (this.sketchbook$itemSearch.isVisible()) {
+            cir.setReturnValue(true);
+            return;
+        }
+        if (this.sketchbook$handleItemLinkDeletion(keyCode)) {
             cir.setReturnValue(true);
         }
     }
@@ -722,6 +727,103 @@ public abstract class SpreadBookEditScreenMixin extends Screen implements Sketch
         BookItemLinks itemLinks = this.bookStack.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY).withReplacement(pageIndex, start, end, end - start, itemId);
         this.bookStack.set(Sketchbook.BOOK_ITEM_LINKS, itemLinks);
         PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, currentText, itemLinks.get(pageIndex)));
+    }
+
+    @Unique
+    private boolean sketchbook$handleItemLinkDeletion(int keyCode) {
+        if (keyCode != GLFW.GLFW_KEY_BACKSPACE && keyCode != GLFW.GLFW_KEY_DELETE) {
+            return false;
+        }
+
+        int pageIndex = this.sketchbook$getFocusedEditorPage();
+        Object editor = this.sketchbook$getEditorForPage(pageIndex);
+        if (editor == null || pageIndex < 0 || pageIndex >= this.pages.size()) {
+            return false;
+        }
+
+        String pageText = this.pages.get(pageIndex);
+        int start;
+        int end;
+        int selectionStart = this.sketchbook$selectionStart(editor);
+        int selectionEnd = this.sketchbook$selectionEnd(editor);
+        if (selectionStart != selectionEnd) {
+            start = selectionStart;
+            end = selectionEnd;
+        } else {
+            int cursor = this.sketchbook$invokeEditorInt(editor, "getCursorPos");
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                start = Math.max(0, cursor - 1);
+                end = cursor;
+            } else {
+                start = cursor;
+                end = Math.min(pageText.length(), cursor + 1);
+            }
+        }
+        if (start >= end) {
+            return false;
+        }
+
+        int expandedStart = start;
+        int expandedEnd = end;
+        boolean touchedLink = false;
+        BookItemLinks itemLinks = this.bookStack.getOrDefault(Sketchbook.BOOK_ITEM_LINKS, BookItemLinks.EMPTY);
+        for (BookItemLink link : itemLinks.get(pageIndex)) {
+            if (link.start() < expandedEnd && link.end() > expandedStart) {
+                expandedStart = Math.min(expandedStart, link.start());
+                expandedEnd = Math.max(expandedEnd, link.end());
+                touchedLink = true;
+            }
+        }
+        if (!touchedLink) {
+            return false;
+        }
+
+        String editedText = pageText.substring(0, expandedStart) + pageText.substring(expandedEnd);
+        try {
+            editor.getClass().getMethod("setSelectionRange", int.class, int.class).invoke(editor, expandedStart, expandedEnd);
+            editor.getClass().getMethod("insertTextAtCursor", String.class).invoke(editor, "");
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+        this.pages.set(pageIndex, editedText);
+        this.bookModified = true;
+
+        BookItemLinks updatedLinks = itemLinks.withEdit(pageIndex, expandedStart, expandedEnd, 0);
+        if (updatedLinks.isEmpty()) {
+            this.bookStack.remove(Sketchbook.BOOK_ITEM_LINKS);
+        } else {
+            this.bookStack.set(Sketchbook.BOOK_ITEM_LINKS, updatedLinks);
+        }
+        PacketDistributor.sendToServer(new BookItemLinkPayload(this.sketchbook$getTarget(), pageIndex, editedText, updatedLinks.get(pageIndex)));
+        return true;
+    }
+
+    @Unique
+    private int sketchbook$getFocusedEditorPage() {
+        Object left = this.sketchbook$getScholarField("leftPageTextBox");
+        if (left != null && this.sketchbook$getTextBoxBoolean(left, "focused", "isFocused")) {
+            return this.sketchbook$getLeftPageIndex();
+        }
+        Object right = this.sketchbook$getScholarField("rightPageTextBox");
+        if (right != null && this.sketchbook$getTextBoxBoolean(right, "focused", "isFocused")) {
+            return this.sketchbook$getRightPageIndex();
+        }
+        return -1;
+    }
+
+    @Unique
+    private boolean sketchbook$getTextBoxBoolean(Object textBox, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            try {
+                Field field = this.sketchbook$getField(textBox.getClass(), fieldName);
+                if (field != null) {
+                    field.setAccessible(true);
+                    return field.getBoolean(textBox);
+                }
+            } catch (ReflectiveOperationException ignored) {
+            }
+        }
+        return false;
     }
 
     @Unique

@@ -7,6 +7,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.Style;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -39,35 +40,35 @@ public final class ItemLinkRenderer {
             return;
         }
 
-        ItemStack hovered = ItemStack.EMPTY;
-        String[] lines = pages.get(pageIndex).split("\n", -1);
-        int globalIndex = 0;
-        for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-            String line = lines[lineIndex];
-            int lineStart = globalIndex;
-            int lineEnd = globalIndex + line.length();
+        ItemStack[] hovered = {ItemStack.EMPTY};
+        String pageText = pages.get(pageIndex);
+        int[] lineIndex = {0};
+        font.getSplitter().splitLines(pageText, 114, Style.EMPTY, true, (style, lineStart, lineEnd) -> {
+            String line = pageText.substring(lineStart, lineEnd);
             for (BookItemLink link : links) {
-                if (link.start() < lineStart || link.end() > lineEnd) {
+                int start = Math.max(link.start(), lineStart);
+                int end = Math.min(link.end(), lineEnd);
+                if (start >= end) {
                     continue;
                 }
                 Optional<ItemStack> stack = stack(link.itemId());
                 if (stack.isEmpty()) {
                     continue;
                 }
-                String text = line.substring(link.start() - lineStart, link.end() - lineStart);
-                int x = pageLeft + font.width(line.substring(0, link.start() - lineStart));
-                int y = pageTop + lineIndex * 9;
+                String text = pageText.substring(start, end);
+                int x = pageLeft + font.width(line.substring(0, start - lineStart));
+                int y = pageTop + lineIndex[0] * 9;
                 graphics.drawString(font, text, x, y, LINK_COLOR, false);
                 int width = font.width(text);
                 graphics.hLine(x, x + width - 1, y + 8, LINK_COLOR);
                 if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + 9) {
-                    hovered = stack.get();
+                    hovered[0] = stack.get();
                 }
             }
-            globalIndex += line.length() + 1;
-        }
-        if (!hovered.isEmpty()) {
-            renderItemTooltip(graphics, font, hovered, mouseX, mouseY);
+            lineIndex[0]++;
+        });
+        if (!hovered[0].isEmpty()) {
+            renderItemTooltip(graphics, font, hovered[0], mouseX, mouseY);
         }
     }
 
