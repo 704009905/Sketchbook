@@ -23,19 +23,27 @@ public interface SketchBookScreenBridge {
 
     Optional<UUID> sketchbook$getSketchReference(int pageIndex);
 
-    void sketchbook$setEntitySketch(int pageIndex, BookEntitySketch sketch);
+    default void sketchbook$setEntitySketch(int pageIndex, BookEntitySketch sketch) {
+    }
 
-    void sketchbook$setItemSketch(int pageIndex, BookItemSketch sketch);
+    default void sketchbook$setItemSketch(int pageIndex, BookItemSketch sketch) {
+    }
 
     void sketchbook$cacheSketch(UUID referenceId, PageSketch sketch, Optional<SketchSourceImage> sourceImage, int colorMask);
 
     void sketchbook$removeSketch(int pageIndex);
 
-    boolean sketchbook$handleContextScroll(double mouseX, double mouseY, double scrollY);
+    default boolean sketchbook$handleContextScroll(double mouseX, double mouseY, double scrollY) {
+        return false;
+    }
 
-    boolean sketchbook$handleOverlayChar(char codePoint);
+    default boolean sketchbook$handleOverlayChar(char codePoint) {
+        return false;
+    }
 
-    boolean sketchbook$handleOverlayKey(int keyCode, int scanCode, int modifiers);
+    default boolean sketchbook$handleOverlayKey(int keyCode, int scanCode, int modifiers) {
+        return false;
+    }
 
     Screen sketchbook$asScreen();
 }
