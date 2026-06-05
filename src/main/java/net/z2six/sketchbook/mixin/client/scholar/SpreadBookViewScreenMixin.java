@@ -13,6 +13,8 @@ import net.z2six.sketchbook.book.PageSketch;
 import net.z2six.sketchbook.book.SketchSourceImage;
 import net.z2six.sketchbook.client.ClientSketchCache;
 import net.z2six.sketchbook.client.ClientSketchRequestManager;
+import net.z2six.sketchbook.client.EntitySketchRenderer;
+import net.z2six.sketchbook.client.ItemSketchRenderer;
 import net.z2six.sketchbook.client.SketchBookScreenBridge;
 import net.z2six.sketchbook.client.SketchPageRenderer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -95,12 +97,18 @@ public abstract class SpreadBookViewScreenMixin extends Screen implements Sketch
         PageSketch sketch = BookSketches.getInlineSketch(book, pageIndex);
         if (sketch == null) {
             sketch = BookSketches.getSketchReference(book, pageIndex).flatMap(ClientSketchCache::get).orElse(null);
-            if (sketch == null && BookSketches.hasSketch(book, pageIndex)) {
+            if (sketch == null
+                && BookSketches.hasSketch(book, pageIndex)
+                && BookSketches.getEntitySketch(book, pageIndex).isEmpty()
+                && BookSketches.getItemSketch(book, pageIndex).isEmpty()) {
                 ClientSketchRequestManager.request(this.sketchbook$getTarget(), pageIndex);
             }
         }
         if (sketch != null) {
             SketchPageRenderer.render(graphics, left, top, 114, 128, sketch);
+        } else {
+            BookSketches.getEntitySketch(book, pageIndex).ifPresent(entitySketch -> EntitySketchRenderer.render(graphics, left, top, 114, 128, entitySketch));
+            BookSketches.getItemSketch(book, pageIndex).ifPresent(itemSketch -> ItemSketchRenderer.render(graphics, left, top, 114, 128, itemSketch));
         }
     }
 
